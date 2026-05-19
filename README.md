@@ -68,8 +68,8 @@ Ready to run the project on your machine? Follow these simple steps:
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/yourusername/project-gst.git
-cd project-gst
+git clone https://github.com/shritesh263/Smart-Business-GST-Tracker.git
+cd Smart-Business-GST-Tracker
 ```
 
 ### 2. Set Up a Virtual Environment (Recommended)
