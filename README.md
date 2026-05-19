@@ -8,6 +8,9 @@
   [![Flask](https://img.shields.io/badge/Flask-2.0+-black.svg?style=for-the-badge&logo=flask&logoColor=white)](#)
   [![SQLite](https://img.shields.io/badge/SQLite-Database-003B57.svg?style=for-the-badge&logo=sqlite&logoColor=white)](#)
   [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](#)
+  
+  <br />
+  <strong><a href="https://smart-business-gst-tracker.vercel.app" target="_blank">🚀 View Live Demo</a></strong>
 </div>
 
 <hr>
@@ -97,4 +100,6 @@ Create a `.env` file in the root directory (if not already present) and add your
 python app.py
 ```
 
-🎉 **Access the App:** Open your web browser and navigate to [http://127.0.0.1:5000](http://127.0.0.1:5000)
+🎉 **Access the Local App:** Open your web browser and navigate to [http://127.0.0.1:5000](http://127.0.0.1:5000)
+
+🌐 **Access the Live Deployed App:** [https://smart-business-gst-tracker.vercel.app](https://smart-business-gst-tracker.vercel.app)
