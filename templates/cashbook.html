@@ -1,0 +1,197 @@
+{% extends 'base.html' %}
+{% block title %}Cash Book | GST Tracker{% endblock %}
+{% block content %}
+<div class="mb-6">
+    <div class="flex items-center gap-3 mb-2">
+        <div class="w-10 h-10 rounded-lg bg-blue-500/10 text-blue-600 flex items-center justify-center text-xl shadow-sm"><i class="ph ph-book-open"></i></div>
+        <h1 class="text-3xl font-bold text-text-main tracking-tight">Daily Cash Book</h1>
+    </div>
+    <p class="text-text-muted">Your digital roz-namcha — record every cash and digital transaction.</p>
+</div>
+
+<!-- Two big action buttons -->
+<div class="grid grid-cols-2 gap-4 mb-6">
+    <button onclick="openForm('cash_in')" class="btn bg-success hover:bg-green-600 text-white py-4 text-lg shadow-lg shadow-green-400/20 flex items-center justify-center gap-3">
+        <i class="ph ph-arrow-circle-down text-2xl"></i> + Cash In
+    </button>
+    <button onclick="openForm('cash_out')" class="btn bg-danger hover:bg-red-600 text-white py-4 text-lg shadow-lg shadow-red-400/20 flex items-center justify-center gap-3">
+        <i class="ph ph-arrow-circle-up text-2xl"></i> − Cash Out
+    </button>
+</div>
+
+<!-- Quick Entry Modal -->
+<div id="entry-modal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center hidden">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+        <div id="modal-header" class="p-5 flex items-center justify-between">
+            <h3 id="modal-title" class="text-lg font-bold text-white flex items-center gap-2"></h3>
+            <button onclick="closeModal()" class="text-white/80 hover:text-white"><i class="ph ph-x text-xl"></i></button>
+        </div>
+        <div class="p-6 space-y-4">
+            <div class="form-group mb-0">
+                <label class="form-label">Amount (₹)</label>
+                <div class="relative">
+                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted font-medium">₹</span>
+                    <input type="number" id="cb-amount" class="form-control !pl-8" placeholder="e.g. 2000" min="0" step="0.01">
+                </div>
+            </div>
+            <div class="form-group mb-0">
+                <label class="form-label">Description</label>
+                <input type="text" id="cb-desc" class="form-control" placeholder="e.g. Grocery sale, Shop rent payment...">
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div class="form-group mb-0">
+                    <label class="form-label">Payment Mode</label>
+                    <select id="cb-mode" class="form-control">
+                        <option value="cash">Cash</option>
+                        <option value="upi">UPI</option>
+                        <option value="card">Card</option>
+                        <option value="cheque">Cheque</option>
+                    </select>
+                </div>
+                <div class="form-group mb-0">
+                    <label class="form-label">Date</label>
+                    <input type="date" id="cb-date" class="form-control">
+                </div>
+            </div>
+        </div>
+        <div class="px-6 pb-6 flex gap-3">
+            <button onclick="closeModal()" class="btn btn-outline flex-1">Cancel</button>
+            <button onclick="saveEntry()" id="cb-save-btn" class="btn btn-primary flex-1">Save Entry</button>
+        </div>
+    </div>
+</div>
+
+<!-- Date filter -->
+<div class="flex items-center gap-3 mb-5">
+    <label class="text-sm font-medium text-text-muted">View date:</label>
+    <input type="date" id="view-date" class="form-control !w-auto" onchange="loadEntries()">
+</div>
+
+<!-- Summary cards -->
+<div class="grid grid-cols-3 gap-4 mb-6">
+    <div class="card text-center py-5">
+        <p class="text-xs font-bold text-success uppercase tracking-widest mb-1">Cash In</p>
+        <p id="total-in" class="text-2xl font-bold text-success">₹0</p>
+    </div>
+    <div class="card text-center py-5">
+        <p class="text-xs font-bold text-danger uppercase tracking-widest mb-1">Cash Out</p>
+        <p id="total-out" class="text-2xl font-bold text-danger">₹0</p>
+    </div>
+    <div class="card text-center py-5 bg-primary/5 border-primary/20">
+        <p class="text-xs font-bold text-primary uppercase tracking-widest mb-1">Closing Balance</p>
+        <p id="closing-balance" class="text-2xl font-bold text-primary">₹0</p>
+    </div>
+</div>
+
+<!-- Two-column entries -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div class="card p-0 overflow-hidden">
+        <div class="p-4 bg-green-50 border-b border-green-200 flex items-center gap-2">
+            <i class="ph ph-arrow-circle-down text-success text-lg"></i>
+            <h3 class="font-bold text-green-800">Cash In Entries</h3>
+        </div>
+        <ul id="in-list" class="divide-y divide-border">
+            <li class="px-4 py-8 text-center text-text-muted text-sm">No entries yet</li>
+        </ul>
+    </div>
+    <div class="card p-0 overflow-hidden">
+        <div class="p-4 bg-red-50 border-b border-red-200 flex items-center gap-2">
+            <i class="ph ph-arrow-circle-up text-danger text-lg"></i>
+            <h3 class="font-bold text-red-800">Cash Out Entries</h3>
+        </div>
+        <ul id="out-list" class="divide-y divide-border">
+            <li class="px-4 py-8 text-center text-text-muted text-sm">No entries yet</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentType = 'cash_in';
+
+const MODE_LABELS = {cash:'💵 Cash',upi:'📱 UPI',card:'💳 Card',cheque:'📄 Cheque'};
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('view-date').valueAsDate = new Date();
+    document.getElementById('cb-date').valueAsDate   = new Date();
+    loadEntries();
+});
+
+function openForm(type) {
+    currentType = type;
+    const modal  = document.getElementById('entry-modal');
+    const header = document.getElementById('modal-header');
+    const title  = document.getElementById('modal-title');
+    if (type === 'cash_in') {
+        header.className = 'p-5 flex items-center justify-between bg-success';
+        title.innerHTML  = '<i class="ph ph-arrow-circle-down text-xl"></i> Add Cash In';
+    } else {
+        header.className = 'p-5 flex items-center justify-between bg-danger';
+        title.innerHTML  = '<i class="ph ph-arrow-circle-up text-xl"></i> Add Cash Out';
+    }
+    modal.classList.remove('hidden');
+    document.getElementById('cb-amount').focus();
+}
+
+function closeModal() {
+    document.getElementById('entry-modal').classList.add('hidden');
+    document.getElementById('cb-amount').value = '';
+    document.getElementById('cb-desc').value   = '';
+}
+
+async function saveEntry() {
+    const userId = getUserId();
+    const amount = document.getElementById('cb-amount').value;
+    if (!amount || parseFloat(amount) <= 0) { showToast('Enter a valid amount','error'); return; }
+    const btn = document.getElementById('cb-save-btn');
+    btn.disabled = true; btn.innerText = 'Saving...';
+    try {
+        const res = await fetch('/api/cashbook/add', {method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ user_id: userId, type: currentType, amount,
+                description: document.getElementById('cb-desc').value,
+                payment_mode: document.getElementById('cb-mode').value,
+                date: document.getElementById('cb-date').value })});
+        const data = await res.json();
+        if (data.success) { showToast('Entry saved!', 'success'); closeModal(); loadEntries(); }
+        else { showToast(data.message,'error'); }
+    } catch(e) { showToast('Server error','error'); }
+    finally { btn.disabled = false; btn.innerText = 'Save Entry'; }
+}
+
+async function loadEntries() {
+    const userId    = getUserId();
+    const entryDate = document.getElementById('view-date').value;
+    try {
+        const res  = await fetch(`/api/cashbook?user_id=${userId}&date=${entryDate}`);
+        const data = await res.json();
+        document.getElementById('total-in').innerText       = formatRupee(data.cash_in  || 0);
+        document.getElementById('total-out').innerText      = formatRupee(data.cash_out || 0);
+        const bal = (data.cash_in || 0) - (data.cash_out || 0);
+        const balEl = document.getElementById('closing-balance');
+        balEl.innerText = formatRupee(bal);
+        balEl.className = `text-2xl font-bold ${bal >= 0 ? 'text-primary' : 'text-danger'}`;
+
+        const inEntries  = (data.entries || []).filter(e => e.type === 'cash_in');
+        const outEntries = (data.entries || []).filter(e => e.type === 'cash_out');
+
+        const renderList = (entries, color) => entries.length === 0
+            ? '<li class="px-4 py-8 text-center text-text-muted text-sm">No entries for this date</li>'
+            : entries.map(e => `
+                <li class="px-4 py-3 hover:bg-gray-50">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-sm font-semibold text-text-main">${e.description || '(No description)'}</p>
+                            <p class="text-xs text-text-muted mt-0.5">${MODE_LABELS[e.payment_mode] || e.payment_mode}</p>
+                        </div>
+                        <p class="text-sm font-bold ${color} shrink-0 ml-2">${formatRupee(e.amount)}</p>
+                    </div>
+                </li>`).join('');
+
+        document.getElementById('in-list').innerHTML  = renderList(inEntries, 'text-success');
+        document.getElementById('out-list').innerHTML = renderList(outEntries, 'text-danger');
+    } catch(e) { showToast('Failed to load cashbook','error'); }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}GST Tracker{% endblock %}</title>
+    {% include '_tailwind.html' %}
+    <link rel="stylesheet" href="/static/style.css">
+    {% block head %}{% endblock %}
+</head>
+<body>
+
+<!-- Sidebar navigation -->
+<aside class="sidebar fixed top-0 left-0 h-screen w-64 bg-card border-r border-border flex flex-col transition-transform duration-300 z-50 -translate-x-full md:translate-x-0">
+    <div class="p-5 flex items-center gap-3 border-b border-border">
+        <div class="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white font-bold text-lg shadow-sm">G</div>
+        <span class="text-lg font-bold text-text-main tracking-tight">GST Tracker</span>
+        <button id="close-mobile-menu" class="md:hidden ml-auto text-text-muted hover:text-text-main">
+            <i class="ph ph-x text-xl"></i>
+        </button>
+    </div>
+
+    <nav class="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+        <a href="/dashboard" class="nav-item {% if request.path == '/dashboard' %}active{% endif %}">
+            <i class="ph ph-squares-four text-lg"></i> Dashboard
+        </a>
+
+        <div class="pt-4 pb-1.5 px-3">
+            <p class="text-[10px] font-bold text-text-muted uppercase tracking-widest">Business</p>
+        </div>
+        <a href="/sales" class="nav-item {% if request.path == '/sales' %}active{% endif %}">
+            <i class="ph ph-plus-circle text-lg"></i> Add Sale
+        </a>
+        <a href="/customers" class="nav-item {% if request.path == '/customers' %}active{% endif %}">
+            <i class="ph ph-users text-lg"></i> Customers
+        </a>
+        <a href="/inventory" class="nav-item {% if request.path == '/inventory' %}active{% endif %}">
+            <i class="ph ph-package text-lg"></i> Inventory
+        </a>
+        <a href="/expenses" class="nav-item {% if request.path == '/expenses' %}active{% endif %}">
+            <i class="ph ph-wallet text-lg"></i> Expenses
+        </a>
+        <a href="/cashbook" class="nav-item {% if request.path == '/cashbook' %}active{% endif %}">
+            <i class="ph ph-book-open text-lg"></i> Cash Book
+        </a>
+
+        <div class="pt-4 pb-1.5 px-3">
+            <p class="text-[10px] font-bold text-text-muted uppercase tracking-widest">Finance</p>
+        </div>
+        <a href="/invoice" class="nav-item {% if request.path == '/invoice' %}active{% endif %}">
+            <i class="ph ph-file-text text-lg"></i> Invoice Generator
+        </a>
+        <a href="/profit-loss" class="nav-item {% if request.path == '/profit-loss' %}active{% endif %}">
+            <i class="ph ph-trend-up text-lg"></i> Profit & Loss
+        </a>
+        <a href="/reminders" class="nav-item {% if request.path == '/reminders' %}active{% endif %}">
+            <i class="ph ph-bell text-lg"></i> Payment Reminders
+        </a>
+        <a href="/summary" class="nav-item {% if request.path == '/summary' %}active{% endif %}">
+            <i class="ph ph-chart-line-up text-lg"></i> Monthly Summary
+        </a>
+
+        <div class="pt-4 pb-1.5 px-3">
+            <p class="text-[10px] font-bold text-text-muted uppercase tracking-widest">Tools</p>
+        </div>
+        <a href="/checker" class="nav-item {% if request.path == '/checker' %}active{% endif %}">
+            <i class="ph ph-check-circle text-lg"></i> GST Eligibility
+        </a>
+    </nav>
+
+    <div class="p-3 border-t border-border">
+        <button id="logout-btn" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-danger hover:bg-red-50 transition-colors duration-200">
+            <i class="ph ph-sign-out text-lg"></i> Logout
+        </button>
+    </div>
+</aside>
+
+<!-- Mobile header -->
+<div class="md:hidden fixed top-0 left-0 w-full h-16 bg-card border-b border-border flex items-center justify-between px-4 z-40">
+    <div class="flex items-center gap-2">
+        <div class="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white font-bold shadow-sm">G</div>
+        <span class="font-bold text-text-main tracking-tight">GST Tracker</span>
+    </div>
+    <button class="mobile-toggle text-text-main p-2 rounded-md hover:bg-gray-100">
+        <i class="ph ph-list text-2xl"></i>
+    </button>
+</div>
+
+<!-- Main content area -->
+<main class="main-content flex-1 md:ml-64 p-4 md:p-8 pt-20 md:pt-8 w-full max-w-7xl mx-auto">
+    {% block content %}{% endblock %}
+</main>
+
+<script src="/static/script.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        if (window.location.pathname !== '/') { checkAuth(true); }
+        const toggleBtn = document.querySelector('.mobile-toggle');
+        const closeBtn  = document.getElementById('close-mobile-menu');
+        const sidebar   = document.querySelector('.sidebar');
+        if (toggleBtn && sidebar && closeBtn) {
+            toggleBtn.addEventListener('click', () => sidebar.classList.remove('-translate-x-full'));
+            closeBtn.addEventListener('click',  () => sidebar.classList.add('-translate-x-full'));
+            document.addEventListener('click', (e) => {
+                if (window.innerWidth < 768 &&
+                    !sidebar.contains(e.target) &&
+                    !toggleBtn.contains(e.target) &&
+                    !sidebar.classList.contains('-translate-x-full')) {
+                    sidebar.classList.add('-translate-x-full');
+                }
+            });
+        }
+    });
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,222 @@
+{% extends 'base.html' %}
+{% block title %}Monthly Summary | GST Tracker{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+@media print {
+    body { background: white; }
+    .sidebar, .mobile-toggle, .no-print { display: none !important; }
+    #print-area { padding: 2cm; }
+    .card { box-shadow: none !important; border: 1px solid #e5e7eb !important; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="mb-8 no-print flex flex-col md:flex-row md:items-end justify-between gap-4">
+    <div>
+        <div class="flex items-center gap-3 mb-2">
+            <div class="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-xl shadow-sm">
+                <i class="ph ph-chart-line-up"></i>
+            </div>
+            <h1 class="text-3xl font-bold text-text-main tracking-tight">Monthly Sales & Tax Summary</h1>
+        </div>
+        <p class="text-text-muted">Analyze your revenue and GST liabilities over time.</p>
+    </div>
+    <div class="flex items-center gap-3">
+        <div class="relative">
+            <i class="ph ph-calendar-blank absolute left-3 top-1/2 -translate-y-1/2 text-primary z-10"></i>
+            <input type="month" id="summary-month" class="form-control !pl-10 !inline-block w-auto cursor-pointer" onchange="loadSummary()">
+        </div>
+        <button class="btn btn-outline no-print" onclick="window.print()">
+            <i class="ph ph-printer mr-2"></i> Print Report
+        </button>
+    </div>
+</div>
+
+<div id="print-area">
+    <div class="hidden print-only mb-8 border-b-2 border-primary pb-4">
+        <h2 class="text-3xl font-black text-text-main uppercase">GST Monthly Summary Report</h2>
+        <p class="text-text-muted mt-1 text-lg">Period: <strong id="print-month-label"></strong></p>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div class="card relative overflow-hidden group hover:border-success/50 transition-colors">
+            <div class="absolute top-0 right-0 p-4 opacity-10"><i class="ph ph-trend-up text-6xl text-success"></i></div>
+            <div class="text-sm font-semibold text-text-muted uppercase tracking-wider mb-2">Total Sales <span class="text-xs lowercase">(Gross)</span></div>
+            <div id="sum-sales" class="text-3xl font-bold text-text-main">₹0</div>
+        </div>
+        <div class="card relative overflow-hidden group hover:border-primary/50 transition-colors bg-primary/5 border-primary/20">
+            <div class="absolute top-0 right-0 p-4 opacity-10"><i class="ph ph-coins text-6xl text-primary"></i></div>
+            <div class="text-sm font-semibold text-primary uppercase tracking-wider mb-2">GST Collected</div>
+            <div id="sum-gst" class="text-3xl font-bold text-primary">₹0</div>
+        </div>
+        <div class="card relative overflow-hidden group hover:border-warning/50 transition-colors">
+            <div class="absolute top-0 right-0 p-4 opacity-10"><i class="ph ph-receipt text-6xl text-warning"></i></div>
+            <div class="text-sm font-semibold text-text-muted uppercase tracking-wider mb-2">Transactions</div>
+            <div id="sum-count" class="text-3xl font-bold text-text-main">0</div>
+        </div>
+        <div class="card relative overflow-hidden group hover:border-danger/50 transition-colors bg-danger/5 border-danger/20">
+            <div class="absolute top-0 right-0 p-4 opacity-10"><i class="ph ph-bank text-6xl text-danger"></i></div>
+            <div class="text-sm font-semibold text-danger uppercase tracking-wider mb-2">Net GST Payable</div>
+            <div id="sum-payable" class="text-3xl font-bold text-danger">₹0</div>
+        </div>
+    </div>
+
+    <!-- 6-Month Chart -->
+    <div class="card pt-6 pb-8 px-8 mb-8">
+        <h3 class="text-lg font-bold text-text-main mb-6 flex items-center gap-2">
+            <i class="ph ph-chart-bar text-primary"></i> 6-Month Revenue & Tax Trend
+        </h3>
+        <div class="relative w-full h-[350px]">
+            <canvas id="salesChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- Penalty Calculator (merged from removed /penalty page)       -->
+<!-- ============================================================ -->
+<div class="card no-print">
+    <div class="flex items-center gap-3 mb-6">
+        <div class="w-10 h-10 rounded-lg bg-danger/10 text-danger flex items-center justify-center text-xl shadow-sm">
+            <i class="ph ph-calculator"></i>
+        </div>
+        <div>
+            <h3 class="text-xl font-bold text-text-main">Late Fee & Penalty Calculator</h3>
+            <p class="text-sm text-text-muted">Calculate GST late filing penalty (₹50/day + 18% interest p.a.)</p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
+        <div class="form-group mb-0">
+            <label class="form-label">Days Late</label>
+            <div class="relative">
+                <i class="ph ph-clock absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-lg pointer-events-none"></i>
+                <input type="number" id="pen-days" class="form-control !pl-10" placeholder="e.g. 30" min="0" oninput="calcPenalty()">
+            </div>
+        </div>
+        <div class="form-group mb-0">
+            <label class="form-label">Tax Amount Due (₹)</label>
+            <div class="relative">
+                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted font-medium">₹</span>
+                <input type="number" id="pen-tax" class="form-control !pl-8" placeholder="e.g. 10000" min="0" oninput="calcPenalty()">
+            </div>
+        </div>
+        <div class="form-group mb-0">
+            <label class="form-label">Return Type</label>
+            <select id="pen-type" class="form-control">
+                <option value="GSTR-3B">GSTR-3B</option>
+                <option value="GSTR-1">GSTR-1</option>
+                <option value="GSTR-9">GSTR-9</option>
+                <option value="CMP-08">CMP-08</option>
+            </select>
+        </div>
+    </div>
+
+    <div id="penalty-result" class="hidden grid grid-cols-1 md:grid-cols-3 gap-4 p-5 bg-red-50 border border-red-200 rounded-xl">
+        <div class="text-center">
+            <p class="text-xs font-bold uppercase tracking-widest text-red-500 mb-1">Late Fee</p>
+            <p id="p-fee" class="text-2xl font-bold text-red-700">₹0</p>
+            <p class="text-xs text-red-400 mt-1">₹50 × days</p>
+        </div>
+        <div class="text-center border-x border-red-200">
+            <p class="text-xs font-bold uppercase tracking-widest text-red-500 mb-1">Interest</p>
+            <p id="p-interest" class="text-2xl font-bold text-red-700">₹0</p>
+            <p class="text-xs text-red-400 mt-1">18% p.a. on tax</p>
+        </div>
+        <div class="text-center">
+            <p class="text-xs font-bold uppercase tracking-widest text-red-600 mb-1">Total Penalty</p>
+            <p id="p-total" class="text-3xl font-black text-red-800">₹0</p>
+            <p class="text-xs text-red-400 mt-1">Late fee + Interest</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let myChart = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const today = new Date();
+        document.getElementById('summary-month').value =
+            `${today.getFullYear()}-${(today.getMonth()+1).toString().padStart(2,'0')}`;
+        loadSummary();
+    });
+
+    async function loadSummary() {
+        const userId   = getUserId();
+        const monthVal = document.getElementById('summary-month').value;
+        if (!userId || !monthVal) return;
+        document.getElementById('print-month-label').innerText =
+            new Date(monthVal+'-01').toLocaleDateString('en-IN', {month:'long',year:'numeric'});
+        try {
+            const res  = await fetch(`/api/summary?user_id=${userId}&month=${monthVal}`);
+            const data = await res.json();
+            if (data.success) {
+                document.getElementById('sum-sales').innerText   = formatRupee(data.total_sales);
+                document.getElementById('sum-gst').innerText     = formatRupee(data.total_gst_collected);
+                document.getElementById('sum-count').innerText   = data.sales_count;
+                document.getElementById('sum-payable').innerText = formatRupee(data.net_gst_payable);
+                updateChart(data.chart_data);
+            }
+        } catch(e) { showToast('Failed to load summary', 'error'); }
+    }
+
+    async function calcPenalty() {
+        const days   = parseInt(document.getElementById('pen-days').value) || 0;
+        const tax    = parseFloat(document.getElementById('pen-tax').value) || 0;
+        const retType = document.getElementById('pen-type').value;
+        if (days <= 0 || tax < 0) {
+            document.getElementById('penalty-result').classList.add('hidden');
+            return;
+        }
+        try {
+            const res  = await fetch('/api/penalty', {method:'POST',
+                headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({days_late:days, tax_due:tax,
+                    user_id: getUserId(), return_type: retType})});
+            const data = await res.json();
+            if (data.success) {
+                document.getElementById('p-fee').innerText      = formatRupee(data.daily_penalty_component);
+                document.getElementById('p-interest').innerText = formatRupee(data.interest_component);
+                document.getElementById('p-total').innerText    = formatRupee(data.total_penalty);
+                document.getElementById('penalty-result').classList.remove('hidden');
+            }
+        } catch(e) { console.error(e); }
+    }
+
+    function updateChart(chartData) {
+        const ctx = document.getElementById('salesChart').getContext('2d');
+        if (myChart) myChart.destroy();
+        myChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: chartData.map(d => d.month),
+                datasets: [
+                    { label: 'Total Sales (₹)', data: chartData.map(d => d.sales),
+                      backgroundColor: '#4F46E5', borderRadius: 6,
+                      barPercentage: 0.6, categoryPercentage: 0.8 },
+                    { label: 'GST Collected (₹)', data: chartData.map(d => d.gst),
+                      backgroundColor: '#22C55E', borderRadius: 6,
+                      barPercentage: 0.6, categoryPercentage: 0.8 }
+                ]
+            },
+            options: { responsive:true, maintainAspectRatio:false,
+                plugins: { legend: { position:'top', labels:{ usePointStyle:true, boxWidth:8, font:{family:'Inter',size:13} } },
+                    tooltip: { backgroundColor:'#111827', padding:12, cornerRadius:8,
+                        callbacks:{ label: c => (c.dataset.label||'')+': '+new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',maximumFractionDigits:0}).format(c.parsed.y) } }
+                },
+                scales: {
+                    x: { grid:{display:false}, ticks:{font:{family:'Inter'},color:'#6B7280'} },
+                    y: { grid:{color:'#F3F4F6'}, ticks:{font:{family:'Inter'},color:'#6B7280',
+                        callback: v => v>=100000?'₹'+(v/100000).toFixed(1)+'L':v>=1000?'₹'+(v/1000).toFixed(0)+'k':'₹'+v} }
+                } }
+        });
+    }
+</script>
+{% endblock %}

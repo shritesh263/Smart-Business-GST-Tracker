@@ -1,0 +1,86 @@
+/* ==========================================
+   Custom Global Styles & Overrides
+   (Layout and UI components are mainly handled by Tailwind CSS in _tailwind.html)
+========================================== */
+
+/* ==========================================
+   Toasts Notification
+========================================== */
+#toast-container {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.toast {
+  min-width: 250px;
+  background: #ffffff;
+  color: #111827;
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  border-left: 4px solid #22C55E; /* Success color */
+  animation: slideIn 0.3s ease forwards;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-weight: 500;
+  font-size: 0.95rem;
+}
+
+.toast.error { 
+  border-left-color: #EF4444; /* Danger color */
+}
+
+.toast.warning {
+  border-left-color: #F59E0B; /* Warning color */
+}
+
+@keyframes slideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+/* ==========================================
+   CSS Tooltips
+========================================== */
+[data-tooltip] {
+  position: relative;
+  cursor: help;
+  text-decoration: underline dashed #9CA3AF;
+  text-underline-offset: 4px;
+}
+
+[data-tooltip]:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #111827;
+  color: white;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  margin-bottom: 8px;
+  z-index: 100;
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+  font-weight: 500;
+  font-family: 'Inter', sans-serif;
+}
+
+[data-tooltip]:hover::before {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 6px;
+  border-style: solid;
+  border-color: #111827 transparent transparent transparent;
+  margin-bottom: -4px;
+  z-index: 100;
+}

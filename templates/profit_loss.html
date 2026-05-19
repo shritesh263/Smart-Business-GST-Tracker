@@ -1,0 +1,203 @@
+{% extends 'base.html' %}
+{% block title %}Profit & Loss | GST Tracker{% endblock %}
+{% block head %}<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>@media print{ .no-print{display:none!important} }</style>
+{% endblock %}
+{% block content %}
+<div class="mb-6 no-print flex flex-col md:flex-row md:items-end justify-between gap-4">
+    <div>
+        <div class="flex items-center gap-3 mb-2">
+            <div class="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-xl shadow-sm"><i class="ph ph-trend-up"></i></div>
+            <h1 class="text-3xl font-bold text-text-main tracking-tight">Profit & Loss Statement</h1>
+        </div>
+        <p class="text-text-muted">Month-by-month breakdown of your business performance.</p>
+    </div>
+    <div class="flex gap-3">
+        <input type="month" id="pl-month" class="form-control !w-auto" onchange="loadPL()">
+        <button onclick="window.print()" class="btn btn-outline no-print"><i class="ph ph-printer mr-2"></i>Print</button>
+    </div>
+</div>
+
+<div id="pl-loading" class="text-center py-16 text-text-muted">
+    <i class="ph ph-spinner animate-spin text-4xl block mb-2"></i> Loading...
+</div>
+<div id="pl-content" class="hidden space-y-6">
+
+    <!-- Income & Expense side-by-side -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Income -->
+        <div class="card">
+            <h3 class="text-lg font-bold text-green-700 mb-4 flex items-center gap-2"><i class="ph ph-arrow-circle-down text-success"></i> Income</h3>
+            <div class="flex justify-between items-center py-3 border-b border-dashed border-border">
+                <span class="text-sm text-text-muted">Total Sales Revenue</span>
+                <span id="pl-sales" class="font-bold text-text-main">₹0</span>
+            </div>
+            <div class="flex justify-between items-center pt-3">
+                <span class="text-sm font-bold text-text-main">Total Income</span>
+                <span id="pl-total-income" class="font-bold text-lg text-success">₹0</span>
+            </div>
+        </div>
+
+        <!-- Expenses Breakdown -->
+        <div class="card">
+            <h3 class="text-lg font-bold text-danger mb-4 flex items-center gap-2"><i class="ph ph-arrow-circle-up text-danger"></i> Expenses</h3>
+            <div id="expense-breakdown" class="space-y-2 mb-3">
+                <p class="text-text-muted text-sm">No expenses recorded.</p>
+            </div>
+            <div class="flex justify-between items-center pt-3 border-t border-dashed border-border">
+                <span class="text-sm font-bold text-text-main">Total Expenses</span>
+                <span id="pl-total-exp" class="font-bold text-lg text-danger">₹0</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- GST Section -->
+    <div class="card">
+        <h3 class="text-lg font-bold text-primary mb-4 flex items-center gap-2"><i class="ph ph-coins text-primary"></i> GST</h3>
+        <div class="grid grid-cols-2 gap-4">
+            <div class="flex justify-between items-center py-2 border-b border-dashed border-border">
+                <span class="text-sm text-text-muted">GST Collected from Customers</span>
+                <span id="pl-gst-collected" class="font-semibold text-text-main">₹0</span>
+            </div>
+            <div class="flex justify-between items-center py-2 border-b border-dashed border-border">
+                <span class="text-sm text-text-muted">GST Payable to Government</span>
+                <span id="pl-gst-payable" class="font-semibold text-danger">₹0</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Big result card -->
+    <div id="profit-card" class="rounded-2xl p-8 text-center shadow-lg">
+        <p class="text-sm font-bold uppercase tracking-widest mb-2 opacity-80" id="pc-label">NET PROFIT</p>
+        <p class="text-5xl font-black mb-4" id="pc-amount">₹0</p>
+        <div class="grid grid-cols-3 gap-4 text-sm opacity-90 mt-4 border-t border-white/30 pt-4">
+            <div>
+                <p class="opacity-70 mb-1">Gross Profit</p>
+                <p id="pc-gross" class="font-bold text-lg">₹0</p>
+                <p class="text-xs opacity-60">Sales − Expenses</p>
+            </div>
+            <div>
+                <p class="opacity-70 mb-1">GST Payable</p>
+                <p id="pc-gst" class="font-bold text-lg">₹0</p>
+                <p class="text-xs opacity-60">Deducted from gross</p>
+            </div>
+            <div>
+                <p class="opacity-70 mb-1">Net Profit</p>
+                <p id="pc-net" class="font-bold text-lg">₹0</p>
+                <p class="text-xs opacity-60">Gross − GST</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 6-Month Chart -->
+    <div class="card">
+        <h3 class="text-lg font-bold text-text-main mb-4 flex items-center gap-2"><i class="ph ph-chart-bar text-primary"></i> 6-Month Income vs Expenses</h3>
+        <div class="relative w-full h-72">
+            <canvas id="plChart"></canvas>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let plChart = null;
+const CAT_COLORS = {
+    'Stock Purchase':'#3B82F6','Shop Rent':'#8B5CF6','Electricity Bill':'#F59E0B',
+    'Transport / Delivery':'#10B981','Employee Salary':'#6366F1','Equipment':'#6B7280',
+    'Packaging':'#EC4899','Miscellaneous':'#F97316'
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    const today = new Date();
+    document.getElementById('pl-month').value =
+        `${today.getFullYear()}-${(today.getMonth()+1).toString().padStart(2,'0')}`;
+    loadPL();
+});
+
+async function loadPL() {
+    const userId = getUserId();
+    const month  = document.getElementById('pl-month').value;
+    if (!userId || !month) return;
+
+    document.getElementById('pl-loading').classList.remove('hidden');
+    document.getElementById('pl-content').classList.add('hidden');
+
+    try {
+        const res  = await fetch(`/api/profit-loss?user_id=${userId}&month=${month}`);
+        const data = await res.json();
+        if (!data.success) { showToast('Failed to load P&L','error'); return; }
+
+        document.getElementById('pl-sales').innerText        = formatRupee(data.total_sales);
+        document.getElementById('pl-total-income').innerText = formatRupee(data.total_sales);
+        document.getElementById('pl-total-exp').innerText    = formatRupee(data.total_expenses);
+        document.getElementById('pl-gst-collected').innerText = formatRupee(data.total_gst);
+        document.getElementById('pl-gst-payable').innerText   = formatRupee(data.total_gst);
+
+        // Expense breakdown
+        const bd = document.getElementById('expense-breakdown');
+        const cats = data.expense_by_category;
+        if (Object.keys(cats).length === 0) {
+            bd.innerHTML = '<p class="text-text-muted text-sm">No expenses recorded.</p>';
+        } else {
+            bd.innerHTML = Object.entries(cats).map(([cat, amt]) => `
+                <div class="flex justify-between items-center py-1.5">
+                    <span class="flex items-center gap-2 text-sm text-text-muted">
+                        <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${CAT_COLORS[cat]||'#6B7280'}"></span>
+                        ${cat}
+                    </span>
+                    <span class="text-sm font-semibold text-text-main">${formatRupee(amt)}</span>
+                </div>`).join('');
+        }
+
+        // Big result card
+        const net   = data.net_profit;
+        const gross = data.gross_profit;
+        const card  = document.getElementById('profit-card');
+        if (net >= 0) {
+            card.className = 'rounded-2xl p-8 text-center shadow-lg bg-green-600 text-white';
+            document.getElementById('pc-label').innerText = 'NET PROFIT 🎉';
+        } else {
+            card.className = 'rounded-2xl p-8 text-center shadow-lg bg-danger text-white';
+            document.getElementById('pc-label').innerText = 'NET LOSS ⚠️';
+        }
+        document.getElementById('pc-amount').innerText = formatRupee(Math.abs(net));
+        document.getElementById('pc-gross').innerText  = formatRupee(gross);
+        document.getElementById('pc-gst').innerText    = formatRupee(data.total_gst);
+        document.getElementById('pc-net').innerText    = formatRupee(net);
+
+        renderPLChart(data.chart_data);
+
+        document.getElementById('pl-loading').classList.add('hidden');
+        document.getElementById('pl-content').classList.remove('hidden');
+    } catch(e) { showToast('Error loading P&L','error'); document.getElementById('pl-loading').classList.add('hidden'); }
+}
+
+function renderPLChart(chartData) {
+    const ctx = document.getElementById('plChart').getContext('2d');
+    if (plChart) plChart.destroy();
+    plChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: chartData.map(d => d.month),
+            datasets: [
+                { label: 'Income (₹)', data: chartData.map(d => d.income),
+                  backgroundColor: '#22C55E', borderRadius: 6, barPercentage: 0.6, categoryPercentage: 0.7 },
+                { label: 'Expenses (₹)', data: chartData.map(d => d.expenses),
+                  backgroundColor: '#EF4444', borderRadius: 6, barPercentage: 0.6, categoryPercentage: 0.7 }
+            ]
+        },
+        options: { responsive:true, maintainAspectRatio:false,
+            plugins: { legend: { position:'top', labels:{usePointStyle:true,boxWidth:8,font:{family:'Inter',size:12}} },
+                tooltip:{ backgroundColor:'#111827', padding:12, cornerRadius:8,
+                    callbacks:{ label: c => c.dataset.label+': '+new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',maximumFractionDigits:0}).format(c.parsed.y) } }
+            },
+            scales:{
+                x:{grid:{display:false},ticks:{font:{family:'Inter'},color:'#6B7280'}},
+                y:{grid:{color:'#F3F4F6'},ticks:{font:{family:'Inter'},color:'#6B7280',
+                    callback: v => v>=100000?'₹'+(v/100000).toFixed(1)+'L':v>=1000?'₹'+(v/1000).toFixed(0)+'k':'₹'+v}}
+            }}
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,287 @@
+{% extends 'base.html' %}
+{% block title %}Customers | GST Tracker{% endblock %}
+{% block content %}
+<div class="mb-6">
+    <div class="flex items-center justify-between gap-4">
+        <div>
+            <div class="flex items-center gap-3 mb-2">
+                <div class="w-10 h-10 rounded-lg bg-indigo-500/10 text-indigo-600 flex items-center justify-center text-xl shadow-sm"><i class="ph ph-users"></i></div>
+                <h1 class="text-3xl font-bold text-text-main tracking-tight">Customer Manager</h1>
+            </div>
+            <p class="text-text-muted">Track customers, udhari balances, and payment history.</p>
+        </div>
+        <button onclick="openAddModal()" class="btn btn-primary">
+            <i class="ph ph-plus mr-2"></i> Add Customer
+        </button>
+    </div>
+</div>
+
+<!-- Total outstanding -->
+<div class="card mb-6 flex items-center gap-4 py-4">
+    <div class="w-12 h-12 rounded-xl bg-red-100 text-danger flex items-center justify-center text-2xl"><i class="ph ph-currency-inr"></i></div>
+    <div>
+        <p class="text-xs text-text-muted uppercase tracking-widest font-bold">Total Outstanding Udhari (All Customers)</p>
+        <p id="total-outstanding" class="text-3xl font-bold text-danger">₹0</p>
+    </div>
+</div>
+
+<!-- Customers Table -->
+<div class="card p-0 overflow-hidden mb-6">
+    <div class="p-4 border-b border-border bg-gray-50/50">
+        <h3 class="font-bold text-text-main">All Customers</h3>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-left">
+            <thead class="bg-gray-50 border-b border-border text-xs font-bold text-text-muted uppercase tracking-wider">
+                <tr>
+                    <th class="px-4 py-3">Name</th>
+                    <th class="px-4 py-3">Phone</th>
+                    <th class="px-4 py-3 text-right">Outstanding Balance</th>
+                    <th class="px-4 py-3 text-center">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="customers-tbody">
+                <tr><td colspan="4" class="px-4 py-10 text-center text-text-muted">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Customer Detail Panel (shown on click) -->
+<div id="detail-panel" class="card hidden">
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h3 class="text-xl font-bold text-text-main" id="detail-name"></h3>
+            <p class="text-sm text-text-muted" id="detail-phone"></p>
+        </div>
+        <div class="flex items-center gap-3">
+            <div class="text-right">
+                <p class="text-xs text-text-muted">Outstanding</p>
+                <p id="detail-balance" class="text-2xl font-bold text-danger">₹0</p>
+            </div>
+            <button onclick="openPaymentModal()" class="btn bg-success hover:bg-green-600 text-white">
+                <i class="ph ph-check-circle mr-2"></i> Record Payment
+            </button>
+            <button onclick="closePanelFn()" class="btn btn-outline"><i class="ph ph-x"></i></button>
+        </div>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+            <thead class="bg-gray-50 border-b border-border text-xs font-bold text-text-muted uppercase">
+                <tr>
+                    <th class="px-3 py-2">Date</th>
+                    <th class="px-3 py-2">Type</th>
+                    <th class="px-3 py-2">Description</th>
+                    <th class="px-3 py-2 text-right">Amount</th>
+                </tr>
+            </thead>
+            <tbody id="txn-tbody">
+                <tr><td colspan="4" class="px-3 py-8 text-center text-text-muted">No transactions yet.</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Add Customer Modal -->
+<div id="add-modal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center hidden">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+        <div class="p-5 border-b border-border flex items-center justify-between bg-gray-50">
+            <h3 class="text-lg font-bold text-text-main flex items-center gap-2"><i class="ph ph-user-plus text-primary"></i> Add New Customer</h3>
+            <button onclick="closeAddModal()" class="text-text-muted hover:text-text-main"><i class="ph ph-x text-xl"></i></button>
+        </div>
+        <div class="p-6 space-y-4">
+            <div class="form-group mb-0">
+                <label class="form-label">Full Name <span class="text-danger">*</span></label>
+                <input type="text" id="c-name" class="form-control" placeholder="e.g. Ramesh Kumar">
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div class="form-group mb-0">
+                    <label class="form-label">Phone</label>
+                    <input type="tel" id="c-phone" class="form-control" placeholder="e.g. 9876543210">
+                </div>
+                <div class="form-group mb-0">
+                    <label class="form-label">GST Number</label>
+                    <input type="text" id="c-gst" class="form-control font-mono uppercase" placeholder="GSTIN (optional)">
+                </div>
+            </div>
+            <div class="form-group mb-0">
+                <label class="form-label">Address</label>
+                <textarea id="c-address" class="form-control" rows="2" placeholder="Shop/house address..."></textarea>
+            </div>
+        </div>
+        <div class="px-6 pb-6 flex gap-3">
+            <button onclick="closeAddModal()" class="btn btn-outline flex-1">Cancel</button>
+            <button onclick="saveCustomer()" class="btn btn-primary flex-1" id="save-cust-btn">Save Customer</button>
+        </div>
+    </div>
+</div>
+
+<!-- Record Payment Modal -->
+<div id="payment-modal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center hidden">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+        <div class="p-5 border-b border-border bg-green-50">
+            <h3 class="text-lg font-bold text-green-800 flex items-center gap-2"><i class="ph ph-check-circle text-success"></i> Record Payment Received</h3>
+        </div>
+        <div class="p-6 space-y-4">
+            <div class="form-group mb-0">
+                <label class="form-label">Amount Received (₹)</label>
+                <div class="relative">
+                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted font-medium">₹</span>
+                    <input type="number" id="pay-amount" class="form-control !pl-8" placeholder="e.g. 2000">
+                </div>
+            </div>
+            <div class="form-group mb-0">
+                <label class="form-label">Date</label>
+                <input type="date" id="pay-date" class="form-control">
+            </div>
+            <div class="form-group mb-0">
+                <label class="form-label">Note</label>
+                <input type="text" id="pay-note" class="form-control" placeholder="e.g. Cash payment received">
+            </div>
+        </div>
+        <div class="px-6 pb-6 flex gap-3">
+            <button onclick="closePaymentModal()" class="btn btn-outline flex-1">Cancel</button>
+            <button onclick="savePayment()" class="btn bg-success hover:bg-green-600 text-white flex-1" id="save-pay-btn">Mark as Paid</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let selectedCustomerId = null;
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('pay-date').valueAsDate = new Date();
+    loadCustomers();
+});
+
+function openAddModal()  { document.getElementById('add-modal').classList.remove('hidden'); }
+function closeAddModal() { document.getElementById('add-modal').classList.add('hidden'); }
+function openPaymentModal()  { document.getElementById('payment-modal').classList.remove('hidden'); }
+function closePaymentModal() { document.getElementById('payment-modal').classList.add('hidden'); }
+function closePanelFn()      { document.getElementById('detail-panel').classList.add('hidden'); selectedCustomerId = null; }
+
+async function loadCustomers() {
+    const userId = getUserId();
+    const tbody  = document.getElementById('customers-tbody');
+    try {
+        const res  = await fetch(`/api/customers?user_id=${userId}`);
+        const data = await res.json();
+        document.getElementById('total-outstanding').innerText = formatRupee(data.total_outstanding || 0);
+        if (!data.customers || data.customers.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-12 text-center text-text-muted">No customers yet. Add your first customer!</td></tr>';
+            return;
+        }
+        tbody.innerHTML = data.customers.map(c => `
+            <tr class="border-b border-gray-50 hover:bg-gray-50 transition-colors cursor-pointer" onclick="viewCustomer(${c.id})">
+                <td class="px-4 py-3">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-sm font-bold">
+                            ${c.name.charAt(0).toUpperCase()}
+                        </div>
+                        <span class="font-semibold text-text-main">${c.name}</span>
+                    </div>
+                </td>
+                <td class="px-4 py-3 text-sm text-text-muted">${c.phone || '—'}</td>
+                <td class="px-4 py-3 text-right">
+                    <span class="font-bold text-sm ${c.balance > 0 ? 'text-danger' : 'text-success'}">
+                        ${formatRupee(c.balance)}
+                    </span>
+                    ${c.balance > 0 ? '<span class="ml-1 text-xs text-danger">(owes)</span>' : ''}
+                </td>
+                <td class="px-4 py-3 text-center">
+                    <button onclick="event.stopPropagation(); viewCustomer(${c.id})" class="btn btn-outline btn-sm">View</button>
+                </td>
+            </tr>`).join('');
+    } catch(e) { tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-8 text-center text-danger">Failed to load customers</td></tr>'; }
+}
+
+async function viewCustomer(id) {
+    selectedCustomerId = id;
+    const panel = document.getElementById('detail-panel');
+    panel.classList.remove('hidden');
+    panel.scrollIntoView({behavior:'smooth', block:'start'});
+    try {
+        const res  = await fetch(`/api/customers/${id}`);
+        const data = await res.json();
+        const c    = data.customer;
+        document.getElementById('detail-name').innerText    = c.name;
+        document.getElementById('detail-phone').innerText   = c.phone ? 'Phone: ' + c.phone : '';
+        const bal = document.getElementById('detail-balance');
+        bal.innerText = formatRupee(c.balance);
+        bal.className = `text-2xl font-bold ${c.balance > 0 ? 'text-danger' : 'text-success'}`;
+
+        const tbody = document.getElementById('txn-tbody');
+        if (!data.transactions || data.transactions.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="px-3 py-8 text-center text-text-muted">No transactions yet.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = data.transactions.map(t => {
+            const isSale = t.type === 'sale';
+            const d = new Date(t.date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+            return `<tr class="border-b border-gray-50 hover:bg-gray-50">
+                <td class="px-3 py-2.5 text-text-muted">${d}</td>
+                <td class="px-3 py-2.5">
+                    <span class="text-xs font-bold px-2 py-0.5 rounded-full ${isSale ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}">
+                        ${isSale ? 'Sale' : 'Payment'}
+                    </span>
+                </td>
+                <td class="px-3 py-2.5 text-text-main">${t.description || '—'}</td>
+                <td class="px-3 py-2.5 text-right font-bold ${isSale ? 'text-orange-600' : 'text-success'}">
+                    ${isSale ? '+' : '−'}${formatRupee(t.amount)}
+                </td>
+            </tr>`;
+        }).join('');
+    } catch(e) { showToast('Failed to load customer details','error'); }
+}
+
+async function saveCustomer() {
+    const userId = getUserId();
+    const name   = document.getElementById('c-name').value.trim();
+    if (!name) { showToast('Customer name is required','error'); return; }
+    const btn = document.getElementById('save-cust-btn');
+    btn.disabled = true; btn.innerText = 'Saving...';
+    try {
+        const res = await fetch('/api/customers/add', {method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ user_id: userId, name,
+                phone: document.getElementById('c-phone').value,
+                address: document.getElementById('c-address').value,
+                gst_number: document.getElementById('c-gst').value })});
+        const data = await res.json();
+        if (data.success) { showToast('Customer added!','success'); closeAddModal();
+            document.getElementById('c-name').value = '';
+            document.getElementById('c-phone').value = '';
+            document.getElementById('c-address').value = '';
+            document.getElementById('c-gst').value = '';
+            loadCustomers(); }
+        else { showToast(data.message,'error'); }
+    } catch(e) { showToast('Server error','error'); }
+    finally { btn.disabled = false; btn.innerText = 'Save Customer'; }
+}
+
+async function savePayment() {
+    if (!selectedCustomerId) return;
+    const amount = document.getElementById('pay-amount').value;
+    if (!amount || parseFloat(amount) <= 0) { showToast('Enter valid amount','error'); return; }
+    const btn = document.getElementById('save-pay-btn');
+    btn.disabled = true; btn.innerText = 'Saving...';
+    try {
+        const res = await fetch('/api/customers/transaction', {method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ user_id: getUserId(), customer_id: selectedCustomerId,
+                type: 'payment_received', amount,
+                description: document.getElementById('pay-note').value || 'Payment received',
+                date: document.getElementById('pay-date').value })});
+        const data = await res.json();
+        if (data.success) { showToast('Payment recorded!','success'); closePaymentModal();
+            document.getElementById('pay-amount').value = '';
+            document.getElementById('pay-note').value   = '';
+            viewCustomer(selectedCustomerId); loadCustomers(); }
+        else { showToast(data.message,'error'); }
+    } catch(e) { showToast('Server error','error'); }
+    finally { btn.disabled = false; btn.innerText = 'Mark as Paid'; }
+}
+</script>
+{% endblock %}

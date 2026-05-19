@@ -1,0 +1,173 @@
+{% extends 'base.html' %}
+{% block title %}Payment Reminders | GST Tracker{% endblock %}
+{% block content %}
+<div class="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div>
+        <div class="flex items-center gap-3 mb-2">
+            <div class="w-10 h-10 rounded-lg bg-red-100 text-danger flex items-center justify-center text-xl shadow-sm"><i class="ph ph-bell"></i></div>
+            <h1 class="text-3xl font-bold text-text-main tracking-tight">Payment Reminders</h1>
+        </div>
+        <p class="text-text-muted">Never forget to follow up on pending customer payments.</p>
+    </div>
+    <button onclick="openAddModal()" class="btn btn-primary">
+        <i class="ph ph-plus mr-2"></i> Add Reminder
+    </button>
+</div>
+
+<!-- Legend -->
+<div class="flex items-center gap-4 mb-5 text-xs font-medium flex-wrap">
+    <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-success inline-block"></span> Due in 6+ days</span>
+    <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-warning inline-block"></span> Due in 1-5 days</span>
+    <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-danger inline-block"></span> Overdue</span>
+</div>
+
+<!-- Reminders List -->
+<div id="reminders-list" class="space-y-3">
+    <div class="text-center py-12 text-text-muted">Loading...</div>
+</div>
+
+<!-- Add Reminder Modal -->
+<div id="add-modal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center hidden">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+        <div class="p-5 border-b border-border flex items-center justify-between bg-gray-50">
+            <h3 class="text-lg font-bold text-text-main flex items-center gap-2"><i class="ph ph-bell-ringing text-primary"></i> Add Payment Reminder</h3>
+            <button onclick="closeAddModal()" class="text-text-muted hover:text-text-main"><i class="ph ph-x text-xl"></i></button>
+        </div>
+        <div class="p-6 space-y-4">
+            <div class="form-group mb-0">
+                <label class="form-label">Customer</label>
+                <select id="rm-customer" class="form-control">
+                    <option value="">— Select customer (optional) —</option>
+                </select>
+            </div>
+            <div class="form-group mb-0">
+                <label class="form-label">Amount Due (₹) <span class="text-danger">*</span></label>
+                <div class="relative">
+                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted font-medium">₹</span>
+                    <input type="number" id="rm-amount" class="form-control !pl-8" placeholder="e.g. 5000" min="0">
+                </div>
+            </div>
+            <div class="form-group mb-0">
+                <label class="form-label">Due Date <span class="text-danger">*</span></label>
+                <input type="date" id="rm-date" class="form-control">
+            </div>
+            <div class="form-group mb-0">
+                <label class="form-label">Note</label>
+                <textarea id="rm-note" class="form-control" rows="2" placeholder="e.g. Payment for October invoice, advance for stock..."></textarea>
+            </div>
+        </div>
+        <div class="px-6 pb-6 flex gap-3">
+            <button onclick="closeAddModal()" class="btn btn-outline flex-1">Cancel</button>
+            <button onclick="saveReminder()" class="btn btn-primary flex-1" id="save-rm-btn">Set Reminder</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+    await loadCustomers();
+    loadReminders();
+});
+
+function openAddModal()  { document.getElementById('add-modal').classList.remove('hidden'); }
+function closeAddModal() { document.getElementById('add-modal').classList.add('hidden'); }
+
+async function loadCustomers() {
+    const userId = getUserId();
+    try {
+        const res  = await fetch(`/api/customers?user_id=${userId}`);
+        const data = await res.json();
+        const sel  = document.getElementById('rm-customer');
+        if (data.customers && data.customers.length > 0) {
+            data.customers.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.id; opt.innerText = c.name + (c.phone ? ` (${c.phone})` : '');
+                sel.appendChild(opt);
+            });
+        }
+    } catch(e) {}
+}
+
+async function loadReminders() {
+    const userId  = getUserId();
+    const listDiv = document.getElementById('reminders-list');
+    try {
+        const res  = await fetch(`/api/reminders?user_id=${userId}`);
+        const data = await res.json();
+        if (!data.reminders || data.reminders.length === 0) {
+            listDiv.innerHTML = `<div class="card text-center py-16">
+                <i class="ph ph-bell-slash text-4xl text-text-muted block mb-3"></i>
+                <p class="text-text-muted">No reminders set yet.</p>
+                <button onclick="openAddModal()" class="btn btn-outline mt-4">Add First Reminder</button>
+            </div>`;
+            return;
+        }
+        listDiv.innerHTML = data.reminders.map(r => {
+            let bg, dot, label;
+            if (r.status === 'overdue') {
+                bg = 'bg-red-50 border-red-200'; dot = 'bg-danger'; label = 'Overdue';
+            } else if (r.days_diff <= 5 && r.days_diff >= 0) {
+                bg = 'bg-yellow-50 border-yellow-200'; dot = 'bg-warning'; label = `Due in ${r.days_diff} day(s)`;
+            } else {
+                bg = 'bg-green-50 border-green-200'; dot = 'bg-success'; label = `Due in ${r.days_diff} days`;
+            }
+            const dueDate = new Date(r.due_date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+            return `<div class="flex items-center gap-4 p-4 rounded-xl border ${bg}">
+                <span class="w-3 h-3 rounded-full ${dot} shrink-0"></span>
+                <div class="flex-1">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <p class="font-bold text-text-main">${r.customer_name}</p>
+                        <span class="text-xs px-2 py-0.5 rounded-full font-semibold
+                            ${r.status === 'overdue' ? 'bg-red-200 text-red-700' : r.days_diff <= 5 ? 'bg-yellow-200 text-yellow-700' : 'bg-green-200 text-green-700'}">
+                            ${label}
+                        </span>
+                    </div>
+                    <p class="text-sm text-text-muted mt-0.5">Due: ${dueDate} ${r.note ? '• ' + r.note : ''}</p>
+                </div>
+                <div class="text-right shrink-0">
+                    <p class="font-bold text-lg text-danger">${formatRupee(r.amount_due)}</p>
+                    <button onclick="markPaid(${r.id})" class="btn btn-outline btn-sm mt-1 text-success border-success hover:bg-green-50 text-xs">
+                        <i class="ph ph-check mr-1"></i> Mark Paid
+                    </button>
+                </div>
+            </div>`;
+        }).join('');
+    } catch(e) { listDiv.innerHTML = '<div class="text-center py-8 text-danger">Failed to load reminders</div>'; }
+}
+
+async function saveReminder() {
+    const userId = getUserId();
+    const amount = document.getElementById('rm-amount').value;
+    const dueDate = document.getElementById('rm-date').value;
+    if (!amount || parseFloat(amount) <= 0) { showToast('Enter a valid amount','error'); return; }
+    if (!dueDate) { showToast('Please select a due date','error'); return; }
+    const btn = document.getElementById('save-rm-btn');
+    btn.disabled = true; btn.innerText = 'Saving...';
+    try {
+        const cid = document.getElementById('rm-customer').value;
+        const res = await fetch('/api/reminders/add', {method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ user_id: userId, amount_due: amount, due_date: dueDate,
+                customer_id: cid || null, note: document.getElementById('rm-note').value })});
+        const data = await res.json();
+        if (data.success) { showToast('Reminder set!','success'); closeAddModal();
+            document.getElementById('rm-amount').value = '';
+            document.getElementById('rm-note').value   = '';
+            loadReminders(); }
+        else { showToast(data.message,'error'); }
+    } catch(e) { showToast('Server error','error'); }
+    finally { btn.disabled = false; btn.innerText = 'Set Reminder'; }
+}
+
+async function markPaid(id) {
+    try {
+        const res  = await fetch(`/api/reminders/${id}/mark-paid`, {method:'POST'});
+        const data = await res.json();
+        if (data.success) { showToast('Marked as paid!','success'); loadReminders(); }
+        else { showToast(data.message,'error'); }
+    } catch(e) { showToast('Server error','error'); }
+}
+</script>
+{% endblock %}

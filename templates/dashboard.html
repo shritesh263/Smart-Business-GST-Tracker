@@ -1,0 +1,255 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard | GST Tracker{% endblock %}
+{% block head %}<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+    <div>
+        <h1 class="text-3xl font-bold text-text-main tracking-tight" id="welcome-message">Dashboard</h1>
+        <p class="text-text-muted mt-1">Your complete business snapshot for today.</p>
+    </div>
+    <a href="/sales" class="btn btn-primary">
+        <i class="ph ph-plus font-bold mr-2 text-lg"></i> New Sale Entry
+    </a>
+</div>
+
+<!-- Alert Banners -->
+<div id="overdue-banner" style="display:none;"
+     class="mb-3 flex items-center gap-3 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-xl text-sm font-medium">
+    <i class="ph ph-warning-circle text-xl text-red-500 shrink-0"></i>
+    <span><strong id="overdue-count">0</strong> payment reminder(s) are <strong>overdue</strong>!
+    <a href="/reminders" class="underline ml-1 hover:text-red-600">View Reminders →</a></span>
+</div>
+<div id="due-today-banner" style="display:none;"
+     class="mb-3 flex items-center gap-3 bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-xl text-sm font-medium">
+    <i class="ph ph-bell text-xl text-yellow-500 shrink-0"></i>
+    <span><strong id="due-today-count">0</strong> payment(s) due <strong>today</strong>.
+    <a href="/reminders" class="underline ml-1 hover:text-yellow-700">View Reminders →</a></span>
+</div>
+<div id="deadline-banner" style="display:none;"
+     class="mb-6 flex items-center gap-3 bg-orange-50 border border-orange-200 text-orange-800 px-4 py-3 rounded-xl text-sm font-medium">
+    <i class="ph ph-calendar-x text-xl text-orange-500 shrink-0"></i>
+    <span>GST Deadline approaching! Only <strong id="deadline-days-banner">0</strong> days left to file GSTR-3B (Due: <span id="deadline-date-banner"></span>).</span>
+</div>
+
+<!-- ROW 1 — Sales -->
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-5">
+    <div class="card relative overflow-hidden group hover:border-primary/40">
+        <div class="absolute top-0 right-0 p-4 opacity-10"><i class="ph ph-trend-up text-6xl text-primary"></i></div>
+        <div class="text-xs font-bold text-text-muted uppercase tracking-widest mb-2">Total Sales This Month</div>
+        <div id="dash-sales" class="text-3xl font-bold text-text-main">₹0</div>
+        <div class="text-xs text-primary font-medium mt-2">Revenue from all sales</div>
+    </div>
+    <div class="card relative overflow-hidden group hover:border-primary/40 bg-primary/5 border-primary/20">
+        <div class="absolute top-0 right-0 p-4 opacity-10"><i class="ph ph-coins text-6xl text-primary"></i></div>
+        <div class="text-xs font-bold text-primary uppercase tracking-widest mb-2">GST Collected</div>
+        <div id="dash-gst" class="text-3xl font-bold text-primary">₹0</div>
+        <div class="text-xs text-primary/70 mt-2">Payable to government</div>
+    </div>
+</div>
+
+<!-- ROW 2 — Money -->
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-5">
+    <div class="card relative overflow-hidden group">
+        <div class="absolute top-0 right-0 p-4 opacity-10"><i class="ph ph-chart-pie-slice text-6xl text-success"></i></div>
+        <div class="text-xs font-bold text-text-muted uppercase tracking-widest mb-2">Net Profit This Month</div>
+        <div id="dash-profit" class="text-3xl font-bold text-success">₹0</div>
+        <div class="text-xs text-text-muted mt-2">Sales − Expenses − GST</div>
+    </div>
+    <div class="card relative overflow-hidden group hover:border-blue-400/40">
+        <div class="absolute top-0 right-0 p-4 opacity-10"><i class="ph ph-book-open text-6xl text-blue-500"></i></div>
+        <div class="text-xs font-bold text-text-muted uppercase tracking-widest mb-2">Today's Closing Balance</div>
+        <div id="dash-balance" class="text-3xl font-bold text-text-main">₹0</div>
+        <div class="text-xs text-text-muted mt-2">Cash In − Cash Out today</div>
+    </div>
+</div>
+
+<!-- ROW 3 — Alert Cards -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+    <a href="/customers" class="card relative overflow-hidden group hover:border-red-400/50 transition-colors cursor-pointer no-underline">
+        <div class="absolute top-0 right-0 p-3 opacity-10"><i class="ph ph-users text-5xl text-danger"></i></div>
+        <div class="text-xs font-bold text-danger uppercase tracking-widest mb-2">Udhari Outstanding</div>
+        <div id="dash-udhari" class="text-2xl font-bold text-danger">₹0</div>
+        <div class="text-xs text-text-muted mt-1">Total owed by customers</div>
+    </a>
+    <a href="/inventory" class="card relative overflow-hidden group hover:border-yellow-400/50 transition-colors cursor-pointer no-underline">
+        <div class="absolute top-0 right-0 p-3 opacity-10"><i class="ph ph-package text-5xl text-warning"></i></div>
+        <div class="text-xs font-bold text-warning uppercase tracking-widest mb-2">Low Stock Items</div>
+        <div id="dash-low-stock" class="text-2xl font-bold text-warning">0</div>
+        <div class="text-xs text-text-muted mt-1">Need restocking</div>
+    </a>
+    <a href="/reminders" class="card relative overflow-hidden group hover:border-red-400/50 transition-colors cursor-pointer no-underline">
+        <div class="absolute top-0 right-0 p-3 opacity-10"><i class="ph ph-bell text-5xl text-danger"></i></div>
+        <div class="text-xs font-bold text-danger uppercase tracking-widest mb-2">Overdue Payments</div>
+        <div id="dash-overdue" class="text-2xl font-bold text-danger">0</div>
+        <div class="text-xs text-text-muted mt-1">Past due date</div>
+    </a>
+    <div class="card relative overflow-hidden group hover:border-orange-400/50 transition-colors">
+        <div class="absolute top-0 right-0 p-3 opacity-10"><i class="ph ph-calendar-blank text-5xl text-orange-500"></i></div>
+        <div class="text-xs font-bold text-orange-600 uppercase tracking-widest mb-2">GST Deadline</div>
+        <div id="dash-deadline" class="text-2xl font-bold text-orange-600">— Days</div>
+        <div id="deadline-date" class="text-xs text-text-muted mt-1">Loading...</div>
+    </div>
+</div>
+
+<!-- Bottom 3-column grid -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- Recent Sales -->
+    <div class="lg:col-span-1 card p-0 overflow-hidden flex flex-col">
+        <div class="p-4 border-b border-border flex items-center justify-between bg-gray-50/50">
+            <h3 class="font-bold text-text-main">Recent Sales</h3>
+            <a href="/sales" class="text-xs text-primary font-medium hover:underline">View All</a>
+        </div>
+        <ul id="recent-sales-list" class="flex-1 divide-y divide-border">
+            <li class="p-6 text-center text-text-muted text-sm">Loading...</li>
+        </ul>
+    </div>
+
+    <!-- Top Udhari Customers -->
+    <div class="lg:col-span-1 card p-0 overflow-hidden flex flex-col">
+        <div class="p-4 border-b border-border flex items-center justify-between bg-gray-50/50">
+            <h3 class="font-bold text-text-main">Top Udhari Customers</h3>
+            <a href="/customers" class="text-xs text-primary font-medium hover:underline">View All</a>
+        </div>
+        <ul id="top-debtors-list" class="flex-1 divide-y divide-border">
+            <li class="p-6 text-center text-text-muted text-sm">Loading...</li>
+        </ul>
+    </div>
+
+    <!-- Low Stock Items -->
+    <div class="lg:col-span-1 card p-0 overflow-hidden flex flex-col">
+        <div class="p-4 border-b border-border flex items-center justify-between bg-gray-50/50">
+            <h3 class="font-bold text-text-main">Stock Alerts</h3>
+            <a href="/inventory" class="text-xs text-primary font-medium hover:underline">View All</a>
+        </div>
+        <ul id="low-stock-list" class="flex-1 divide-y divide-border">
+            <li class="p-6 text-center text-text-muted text-sm">Loading...</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+    const userId = getUserId();
+    if (!userId) return;
+
+    try {
+        const res  = await fetch(`/api/dashboard/${userId}`);
+        const data = await res.json();
+        if (!data.success) return;
+
+        // Welcome
+        document.getElementById('welcome-message').innerHTML =
+            `Welcome back, ${data.name.split(' ')[0]} 👋`;
+
+        // Row 1 — Sales
+        document.getElementById('dash-sales').innerText = formatRupee(data.total_sales_month);
+        document.getElementById('dash-gst').innerText   = formatRupee(data.gst_collected);
+
+        // Row 2 — Money
+        const profit   = data.net_profit_month;
+        const profitEl = document.getElementById('dash-profit');
+        profitEl.innerText = formatRupee(profit);
+        profitEl.className = `text-3xl font-bold ${profit >= 0 ? 'text-success' : 'text-danger'}`;
+
+        document.getElementById('dash-balance').innerText = formatRupee(data.today_closing_balance);
+
+        // Row 3 — Alerts
+        document.getElementById('dash-udhari').innerText    = formatRupee(data.total_outstanding);
+        document.getElementById('dash-low-stock').innerText = data.low_stock_count + (data.out_of_stock_count > 0 ? ` (+${data.out_of_stock_count} out)` : '');
+        document.getElementById('dash-overdue').innerText   = data.overdue_reminders_count;
+        document.getElementById('dash-deadline').innerText  = `${data.next_deadline_days} Days`;
+        document.getElementById('deadline-date').innerText  = `Due: ${data.next_deadline_date}`;
+
+        // Alert banners
+        if (data.overdue_reminders_count > 0) {
+            document.getElementById('overdue-count').innerText = data.overdue_reminders_count;
+            document.getElementById('overdue-banner').style.display = 'flex';
+        }
+        if (data.due_today_count > 0) {
+            document.getElementById('due-today-count').innerText = data.due_today_count;
+            document.getElementById('due-today-banner').style.display = 'flex';
+        }
+        if (data.next_deadline_days <= 7) {
+            document.getElementById('deadline-days-banner').innerText = data.next_deadline_days;
+            document.getElementById('deadline-date-banner').innerText = data.next_deadline_date;
+            document.getElementById('deadline-banner').style.display = 'flex';
+        }
+
+        // Recent sales list
+        const salesList = document.getElementById('recent-sales-list');
+        salesList.innerHTML = data.recent_sales.length === 0
+            ? `<li class="p-8 text-center"><p class="text-text-muted text-sm">No sales yet.</p>
+               <a href="/sales" class="btn btn-outline btn-sm mt-2">Add First Sale</a></li>`
+            : data.recent_sales.map(s => `
+                <li class="p-3 hover:bg-gray-50 flex items-center justify-between gap-3">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-base shrink-0">
+                            <i class="ph ph-shopping-bag"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm font-semibold text-text-main line-clamp-1">${s.product}</p>
+                            <p class="text-xs text-text-muted">${formatIndianDate(s.date)} • ${s.gst_rate}% GST</p>
+                        </div>
+                    </div>
+                    <div class="text-right shrink-0">
+                        <p class="text-sm font-bold">${formatRupee(s.amount + s.gst_amount)}</p>
+                        <p class="text-xs text-success">+${formatRupee(s.gst_amount)} GST</p>
+                    </div>
+                </li>`).join('');
+
+        // Top debtors
+        const debtorsList = document.getElementById('top-debtors-list');
+        debtorsList.innerHTML = data.top_debtors.length === 0
+            ? `<li class="p-8 text-center text-text-muted text-sm">No outstanding balances.</li>`
+            : data.top_debtors.map((c, i) => `
+                <li class="p-3 hover:bg-gray-50 flex items-center justify-between gap-3">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-full bg-red-100 text-danger flex items-center justify-center text-sm font-bold shrink-0">
+                            ${i + 1}
+                        </div>
+                        <div>
+                            <p class="text-sm font-semibold text-text-main">${c.name}</p>
+                            <p class="text-xs text-text-muted">${c.phone || 'No phone'}</p>
+                        </div>
+                    </div>
+                    <p class="text-sm font-bold text-danger shrink-0">${formatRupee(c.balance)}</p>
+                </li>`).join('');
+
+        // Low stock
+        const stockList = document.getElementById('low-stock-list');
+        stockList.innerHTML = data.low_stock_items.length === 0
+            ? `<li class="p-8 text-center text-text-muted text-sm">All stock levels are good ✓</li>`
+            : data.low_stock_items.slice(0, 5).map(s => `
+                <li class="p-3 hover:bg-gray-50 flex items-center justify-between gap-3">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-lg ${s.qty <= 0 ? 'bg-red-100 text-danger' : 'bg-yellow-100 text-warning'} flex items-center justify-center text-base shrink-0">
+                            <i class="ph ph-package"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm font-semibold text-text-main">${s.name}</p>
+                            <p class="text-xs text-text-muted">Min: ${s.min} ${s.unit}</p>
+                        </div>
+                    </div>
+                    <span class="text-sm font-bold shrink-0 ${s.qty <= 0 ? 'text-danger' : 'text-warning'}">
+                        ${s.qty} ${s.unit}
+                    </span>
+                </li>`).join('');
+
+    } catch(e) {
+        console.error(e);
+        showToast('Could not load dashboard', 'error');
+    }
+});
+
+function formatIndianDate(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return d.toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'});
+}
+</script>
+{% endblock %}

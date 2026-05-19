@@ -1,0 +1,585 @@
+{% extends 'base.html' %}
+
+{% block title %}GST Invoice Generator | GST Tracker{% endblock %}
+
+{% block head %}
+<style>
+    @media print {
+        body { visibility: hidden; background: white; }
+        .sidebar, .mobile-toggle, header, main.main-content { margin: 0; padding: 0; transform: none !important; }
+        .no-print { display: none !important; }
+        
+        #printable-invoice {
+            visibility: visible;
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            padding: 2cm;
+            box-shadow: none !important;
+            border: none !important;
+            border-radius: 0;
+            background: white !important;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mb-8 no-print">
+    <div class="flex items-center gap-3 mb-2">
+        <div class="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-xl shadow-sm">
+            <i class="ph ph-file-pdf"></i>
+        </div>
+        <h1 class="text-3xl font-bold text-text-main tracking-tight">Invoice Generator</h1>
+    </div>
+    <p class="text-text-muted">Create professional GST-compliant invoices.</p>
+</div>
+
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-8">
+    
+    <!-- Form Side -->
+    <div class="xl:col-span-5 no-print space-y-6">
+        
+        <!-- Seller Details Form -->
+        <div class="card p-0 overflow-hidden">
+            <div class="bg-gray-50/80 px-6 py-4 border-b border-border">
+                <h3 class="font-bold text-text-main flex items-center gap-2">
+                    <i class="ph ph-storefront text-lg text-primary"></i>
+                    Seller Details
+                </h3>
+            </div>
+            <div class="p-6 space-y-4 shadow-inner-sm">
+                <div class="form-group mb-0">
+                    <label class="form-label">Seller Name</label>
+                    <input type="text" id="seller-name" class="form-control" placeholder="e.g. Your Business Name" oninput="updatePreview()">
+                </div>
+                <div class="form-group mb-0">
+                    <label class="form-label">Seller GSTIN</label>
+                    <input type="text" id="seller-gstin" class="form-control font-mono uppercase" placeholder="e.g. 29ABCDE1234F1Z5" oninput="updatePreview()">
+                </div>
+                <div class="form-group mb-0">
+                    <label class="form-label">Seller Address</label>
+                    <textarea id="seller-address" class="form-control" rows="2" placeholder="Full address" oninput="updatePreview()"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- Buyer Details Form -->
+        <div class="card p-0 overflow-hidden">
+            <div class="bg-gray-50/80 px-6 py-4 border-b border-border">
+                <h3 class="font-bold text-text-main flex items-center gap-2">
+                    <i class="ph ph-identification-card text-lg text-primary"></i>
+                    Billed To Details
+                </h3>
+            </div>
+            <div class="p-6 space-y-4 shadow-inner-sm">
+                <div class="form-group mb-0">
+                    <label class="form-label">Buyer Name</label>
+                    <input type="text" id="buyer-name" class="form-control" placeholder="e.g. Suresh Traders" oninput="updatePreview()">
+                </div>
+                <div class="form-group mb-0">
+                    <label class="form-label flex justify-between">
+                        Buyer GSTIN
+                        <span class="text-xs bg-gray-100 text-text-muted px-2 rounded">Optional</span>
+                    </label>
+                    <input type="text" id="buyer-gstin" class="form-control font-mono uppercase" placeholder="e.g. 27ABCDE1234F1Z5" oninput="updatePreview()">
+                </div>
+                <div class="form-group mb-0">
+                    <label class="form-label">Buyer Address</label>
+                    <textarea id="buyer-address" class="form-control" rows="2" placeholder="Full address" oninput="updatePreview()"></textarea>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="form-group mb-0">
+                        <label class="form-label">Invoice Number</label>
+                        <input type="text" id="invoice-no" class="form-control" placeholder="INV-001" oninput="updatePreview()">
+                    </div>
+                    <div class="form-group mb-0">
+                        <label class="form-label">Invoice Date</label>
+                        <input type="date" id="invoice-date" class="form-control" onchange="updatePreview()">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Items Form -->
+        <div class="card p-0 overflow-hidden">
+            <div class="bg-gray-50/80 px-6 py-4 border-b border-border">
+                <h3 class="font-bold text-text-main flex items-center gap-2">
+                    <i class="ph ph-package text-lg text-success"></i>
+                    Add Line Item
+                </h3>
+            </div>
+            <div class="p-6">
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div class="form-group mb-0 col-span-2 md:col-span-1">
+                        <label class="form-label">Product/Service Name</label>
+                        <input type="text" id="item-name" class="form-control" placeholder="e.g. Web Development">
+                    </div>
+                    <div class="form-group mb-0 col-span-2 md:col-span-1">
+                        <label class="form-label">HSN/SAC Code</label>
+                        <input type="text" id="item-hsn" class="form-control" placeholder="e.g. 9983">
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-4 mb-5">
+                    <div class="form-group mb-0">
+                        <label class="form-label">Qty</label>
+                        <input type="number" id="item-qty" class="form-control text-center" value="1" min="1">
+                    </div>
+                    <div class="form-group mb-0">
+                        <label class="form-label">Rate (₹)</label>
+                        <input type="number" id="item-rate" class="form-control" placeholder="Rate">
+                    </div>
+                    <div class="form-group mb-0">
+                        <label class="form-label">GST %</label>
+                        <select id="item-gst" class="form-control !pl-3">
+                            <option value="0">0%</option>
+                            <option value="5">5%</option>
+                            <option value="12">12%</option>
+                            <option value="18" selected>18%</option>
+                            <option value="28">28%</option>
+                        </select>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-outline w-full border-dashed border-2 hover:bg-gray-50 hover:border-primary/50 text-text-main" onclick="addItem()">
+                    <i class="ph ph-plus-circle text-lg mr-2 text-primary"></i>
+                    Add Item to Invoice
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Preview Side -->
+    <div class="xl:col-span-7">
+        <div id="printable-invoice" class="bg-white border border-gray-200 shadow-lg sm:rounded-xl p-8 md:p-12 text-gray-800 font-sans min-h-[A4]">
+            
+            <div class="flex flex-col md:flex-row justify-between items-start border-b-2 border-primary pb-6 mb-6">
+                <!-- Seller Details -->
+                <div class="mb-4 md:mb-0">
+                    <h2 class="text-2xl font-bold text-primary mb-1 uppercase" id="prev-seller-name">Your Business</h2>
+                    <div class="text-sm text-text-muted space-y-1">
+                        <p id="prev-seller-address">Seller Address</p>
+                        <p><strong class="text-text-main">GSTIN:</strong> <span id="prev-seller-gstin">Not Provided</span></p>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <h2 class="text-3xl font-black text-text-main tracking-tighter uppercase mb-2">Tax Invoice</h2>
+                    <div class="text-sm text-text-muted space-y-1">
+                        <p><strong class="text-text-main">Invoice No:</strong> #<span id="prev-invoice-no">INV-001</span></p>
+                        <p><strong class="text-text-main">Date:</strong> <span id="prev-invoice-date"></span></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Buyer Details -->
+            <div class="mb-8">
+                <p class="text-xs font-bold text-text-muted uppercase tracking-wider mb-2 border-b border-gray-100 pb-1">Billed To</p>
+                <h4 class="text-lg font-bold text-text-main" id="prev-buyer-name">Buyer Name</h4>
+                <div class="text-sm text-text-muted mt-1 space-y-1">
+                    <p id="prev-buyer-address">Buyer Address</p>
+                    <p><strong class="text-text-main">GSTIN:</strong> <span class="font-mono uppercase" id="prev-buyer-gstin">Not Provided</span></p>
+                </div>
+            </div>
+
+            <div class="border border-gray-200 rounded-lg overflow-hidden mb-8">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-gray-100 border-b border-gray-200">
+                            <th class="px-3 py-2 text-xs font-bold text-gray-600 uppercase w-10 text-center">#</th>
+                            <th class="px-3 py-2 text-xs font-bold text-gray-600 uppercase">Product/Service</th>
+                            <th class="px-2 py-2 text-xs font-bold text-gray-600 uppercase text-center">HSN</th>
+                            <th class="px-2 py-2 text-xs font-bold text-gray-600 uppercase text-center w-16">Qty</th>
+                            <th class="px-3 py-2 text-xs font-bold text-gray-600 uppercase text-right">Rate</th>
+                            <th class="px-3 py-2 text-xs font-bold text-gray-600 uppercase text-right">Taxable</th>
+                            <th class="px-3 py-2 text-xs font-bold text-gray-600 uppercase text-right w-16">GST%</th>
+                            <th class="px-3 py-2 text-xs font-bold text-gray-600 uppercase text-right">GST Amt</th>
+                            <th class="px-3 py-2 text-xs font-bold text-gray-600 uppercase text-right">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody id="prev-items" class="divide-y divide-gray-100">
+                        <!-- Items injected here -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="flex flex-col md:flex-row justify-between items-start pt-2">
+                <div class="w-full md:w-1/2 mb-6 md:mb-0">
+                    <p class="text-xs font-bold text-text-muted uppercase tracking-wider mb-1">Amount in Words</p>
+                    <p class="text-sm font-medium text-text-main italic" id="prev-words">Rupees Zero Only</p>
+                    
+                    <div class="mt-8 pt-8 text-center md:text-left text-xs text-text-muted">
+                        <p>This is a computer generated invoice.</p>
+                    </div>
+                </div>
+                
+                <div class="w-full md:w-5/12 bg-gray-50 rounded-lg p-5 border border-gray-200">
+                    <div class="space-y-3">
+                        <div class="flex justify-between text-sm text-text-main">
+                            <span>Total Taxable Amount:</span>
+                            <span id="prev-taxable" class="font-medium">₹0.00</span>
+                        </div>
+                        <div class="flex justify-between text-sm text-text-main border-b border-gray-200 pb-3">
+                            <span>Total GST Amount:</span>
+                            <span id="prev-total-gst" class="font-medium">₹0.00</span>
+                        </div>
+                        <div class="flex justify-between text-lg font-bold text-primary pt-1">
+                            <span>Grand Total:</span>
+                            <span id="prev-grand-total">₹0.00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-12 text-right">
+                <p class="text-xs text-text-muted mb-6">For <span id="prev-sign-name" class="font-semibold">Your Business</span></p>
+                <p class="text-sm font-medium text-text-main mt-8">Authorized Signatory</p>
+            </div>
+        </div>
+
+        <!-- 3 Action Buttons -->
+        <div class="flex flex-col sm:flex-row gap-4 mt-6 no-print">
+            <button type="button" class="btn bg-blue-600 hover:bg-blue-700 text-white flex-1 py-3 text-base shadow-md shadow-blue-600/20" onclick="generatePdf()">
+                <i class="ph ph-file-pdf text-xl mr-2"></i>
+                Generate PDF
+            </button>
+            <button type="button" class="btn bg-gray-600 hover:bg-gray-700 text-white flex-1 py-3 text-base shadow-md shadow-gray-600/20" onclick="window.print()">
+                <i class="ph ph-printer text-xl mr-2"></i>
+                Print
+            </button>
+            <button type="button" class="btn bg-green-600 hover:bg-green-700 text-white flex-1 py-3 text-base shadow-md shadow-green-600/20" onclick="openEmailModal()">
+                <i class="ph ph-envelope-simple text-xl mr-2"></i>
+                <span id="btn-email-text">Send Email</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Email Modal -->
+<div id="email-modal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden transform scale-95 transition-transform duration-300" id="email-modal-content">
+        <div class="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+            <h3 class="text-lg font-bold text-gray-800 flex items-center">
+                <i class="ph ph-paper-plane-tilt text-green-600 mr-2"></i>
+                Send Invoice via Email
+            </h3>
+            <button onclick="closeEmailModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                <i class="ph ph-x text-xl"></i>
+            </button>
+        </div>
+        <div class="p-6 space-y-4 shadow-inner-sm">
+            <div class="form-group mb-0">
+                <label class="form-label">Receiver Email <span class="text-red-500">*</span></label>
+                <input type="email" id="email-receiver" class="form-control" placeholder="buyer@example.com">
+                <p id="email-error" class="text-red-500 text-xs mt-1 hidden"></p>
+            </div>
+            <div class="form-group mb-0">
+                <label class="form-label">Add a note for receiver (Optional)</label>
+                <textarea id="email-message" class="form-control" rows="3" placeholder="Please find attached your GST invoice."></textarea>
+            </div>
+        </div>
+        <div class="p-5 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
+            <button type="button" class="btn btn-outline border-gray-300 text-gray-700 hover:bg-gray-100" onclick="closeEmailModal()" id="btn-cancel-email">Cancel</button>
+            <button type="button" class="btn bg-green-600 hover:bg-green-700 text-white min-w-[100px]" onclick="sendEmail()" id="btn-send-email">
+                Send
+            </button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let invoiceItems = [];
+    
+    document.addEventListener('DOMContentLoaded', () => {
+        // Defaults
+        document.getElementById('invoice-date').valueAsDate = new Date();
+        document.getElementById('invoice-no').value = 'INV-' + Math.floor(1000 + Math.random() * 9000);
+        
+        // Try getting user info from localStorage
+        const userId = localStorage.getItem('gst_user_id');
+        if (userId) {
+            document.getElementById('seller-name').value = localStorage.getItem('gst_business_name') || '';
+        }
+        updatePreview();
+    });
+
+    // Helper: Number to words converter for Indian Rupees
+    function numberToWords(num) {
+        if (num === 0) return "Zero";
+        const a = ['', 'One ', 'Two ', 'Three ', 'Four ', 'Five ', 'Six ', 'Seven ', 'Eight ', 'Nine ', 'Ten ', 'Eleven ', 'Twelve ', 'Thirteen ', 'Fourteen ', 'Fifteen ', 'Sixteen ', 'Seventeen ', 'Eighteen ', 'Nineteen '];
+        const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+        if ((num = num.toString()).length > 9) return 'Overflow';
+        const n = ('000000000' + num).substr(-9).match(/^(\d{2})(\d{2})(\d{2})(\d{1})(\d{2})$/);
+        if (!n) return; 
+        
+        let str = '';
+        str += (n[1] != 0) ? (a[Number(n[1])] || b[n[1][0]] + ' ' + a[n[1][1]]) + 'Crore ' : '';
+        str += (n[2] != 0) ? (a[Number(n[2])] || b[n[2][0]] + ' ' + a[n[2][1]]) + 'Lakh ' : '';
+        str += (n[3] != 0) ? (a[Number(n[3])] || b[n[3][0]] + ' ' + a[n[3][1]]) + 'Thousand ' : '';
+        str += (n[4] != 0) ? (a[Number(n[4])] || b[n[4][0]] + ' ' + a[n[4][1]]) + 'Hundred ' : '';
+        str += (n[5] != 0) ? ((str != '') ? 'and ' : '') + (a[Number(n[5])] || b[n[5][0]] + ' ' + a[n[5][1]]) : '';
+        return str.trim();
+    }
+
+    function addItem() {
+        const name = document.getElementById('item-name').value;
+        const hsn = document.getElementById('item-hsn').value || '-';
+        const qty = parseFloat(document.getElementById('item-qty').value) || 1;
+        const rate = parseFloat(document.getElementById('item-rate').value) || 0;
+        const gstRate = parseFloat(document.getElementById('item-gst').value) || 0;
+
+        if (!name || rate <= 0) {
+            showToast("Please enter a valid item name and rate.", "error");
+            return;
+        }
+
+        const taxableAmount = qty * rate;
+        const gstAmount = (taxableAmount * gstRate) / 100;
+        const totalAmount = taxableAmount + gstAmount;
+
+        invoiceItems.push({
+            name, hsn, qty, rate, gstRate, taxableAmount, gstAmount, totalAmount
+        });
+
+        // Reset inputs
+        document.getElementById('item-name').value = '';
+        document.getElementById('item-hsn').value = '';
+        document.getElementById('item-rate').value = '';
+        document.getElementById('item-qty').value = '1';
+
+        updatePreview();
+        showToast("Item added");
+    }
+
+    function removeInvoiceItem(index) {
+        invoiceItems.splice(index, 1);
+        updatePreview();
+    }
+
+    function updatePreview() {
+        // Seller
+        document.getElementById('prev-seller-name').innerText = document.getElementById('seller-name').value || 'Your Business Name';
+        document.getElementById('prev-seller-address').innerText = document.getElementById('seller-address').value || 'Seller Address';
+        document.getElementById('prev-seller-gstin').innerText = document.getElementById('seller-gstin').value || 'Not Provided';
+        document.getElementById('prev-sign-name').innerText = document.getElementById('seller-name').value || 'Your Business';
+        
+        // Buyer
+        document.getElementById('prev-buyer-name').innerText = document.getElementById('buyer-name').value || 'Buyer Name';
+        document.getElementById('prev-buyer-address').innerText = document.getElementById('buyer-address').value || 'Buyer Address';
+        document.getElementById('prev-buyer-gstin').innerText = document.getElementById('buyer-gstin').value || 'Not Provided';
+        
+        // Invoice Details
+        document.getElementById('prev-invoice-no').innerText = document.getElementById('invoice-no').value || 'INV-001';
+        const dateRaw = document.getElementById('invoice-date').value;
+        document.getElementById('prev-invoice-date').innerText = dateRaw ? new Date(dateRaw).toLocaleDateString('en-IN') : '';
+
+        // Items
+        const tbody = document.getElementById('prev-items');
+        tbody.innerHTML = '';
+
+        let totalTaxable = 0;
+        let totalGst = 0;
+
+        if(invoiceItems.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="9" class="py-12 text-center text-gray-400 text-sm italic">No items added to invoice yet.</td></tr>';
+        }
+
+        invoiceItems.forEach((item, idx) => {
+            totalTaxable += item.taxableAmount;
+            totalGst += item.gstAmount;
+
+            const tr = document.createElement('tr');
+            tr.className = "group hover:bg-gray-50 transition-colors relative border-b border-gray-100 last:border-0";
+            tr.innerHTML = `
+                <td class="px-3 py-3 text-sm text-center text-gray-500">${idx + 1}
+                    <button onclick="removeInvoiceItem(${idx})" class="absolute -left-2 top-3 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity no-print" title="Remove Item"><i class="ph ph-trash"></i></button>
+                </td>
+                <td class="px-3 py-3 text-sm text-text-main font-medium">${item.name}</td>
+                <td class="px-2 py-3 text-sm text-text-muted text-center">${item.hsn}</td>
+                <td class="px-2 py-3 text-sm text-text-main text-center">${item.qty}</td>
+                <td class="px-3 py-3 text-sm text-text-main text-right">${formatRupee(item.rate)}</td>
+                <td class="px-3 py-3 text-sm text-text-main text-right">${formatRupee(item.taxableAmount)}</td>
+                <td class="px-3 py-3 text-sm text-text-muted text-right">${item.gstRate}%</td>
+                <td class="px-3 py-3 text-sm text-text-main text-right">${formatRupee(item.gstAmount)}</td>
+                <td class="px-3 py-3 text-sm text-text-main font-semibold text-right">${formatRupee(item.totalAmount)}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        const grandTotal = totalTaxable + totalGst;
+        
+        document.getElementById('prev-taxable').innerText = formatRupee(totalTaxable);
+        document.getElementById('prev-total-gst').innerText = formatRupee(totalGst);
+        document.getElementById('prev-grand-total').innerText = formatRupee(grandTotal);
+
+        // Update words
+        const totalInt = Math.floor(grandTotal);
+        if (totalInt > 0) {
+            document.getElementById('prev-words').innerText = "Rupees " + numberToWords(totalInt) + " Only";
+        } else {
+            document.getElementById('prev-words').innerText = "Rupees Zero Only";
+        }
+    }
+
+    // Modal logic
+    const modal = document.getElementById('email-modal');
+    const modalContent = document.getElementById('email-modal-content');
+
+    function openEmailModal() {
+        modal.classList.remove('hidden');
+        // trigger animation
+        setTimeout(() => {
+            modal.classList.add('opacity-100');
+            modalContent.classList.remove('scale-95');
+            modalContent.classList.add('scale-100');
+        }, 10);
+    }
+
+    function closeEmailModal() {
+        modal.classList.remove('opacity-100');
+        modalContent.classList.remove('scale-100');
+        modalContent.classList.add('scale-95');
+        
+        setTimeout(() => {
+            modal.classList.add('hidden');
+            document.getElementById('email-error').classList.add('hidden');
+        }, 300);
+    }
+
+    // Backend interactions
+    async function saveInvoiceData() {
+        const payload = {
+            seller_name: document.getElementById('seller-name').value,
+            buyer_name: document.getElementById('buyer-name').value,
+            invoice_no: document.getElementById('invoice-no').value,
+            total_amount: document.getElementById('prev-grand-total').innerText,
+            user_id: localStorage.getItem('gst_user_id') || 'guest',
+            html_content: getPrintableHtml()
+        };
+
+        const res = await fetch('/api/invoice/save', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        return data.success ? data.invoice_id : null;
+    }
+
+    function getPrintableHtml() {
+        const head = document.head.innerHTML;
+        const styles = `
+            <style>
+                body { margin:0; padding:2cm; font-family: sans-serif; background:white; color: #1f2937; }
+                .no-print { display: none !important; }
+                table { width: 100%; border-collapse: collapse; margin-bottom: 2rem; }
+                th { background-color: #f3f4f6; text-align: left; padding: 0.5rem; border-bottom: 1px solid #e5e7eb; font-size: 0.75rem; text-transform: uppercase; color: #4b5563; }
+                td { padding: 0.5rem; border-bottom: 1px solid #f3f4f6; font-size: 0.875rem; }
+                .text-right { text-align: right; }
+                .text-center { text-align: center; }
+                .flex { display: flex; }
+                .justify-between { justify-content: space-between; }
+                .mb-4 { margin-bottom: 1rem; }
+                .mb-8 { margin-bottom: 2rem; }
+                h2, h4, p { margin: 0; }
+                .border-b-2 { border-bottom: 2px solid #3b82f6; padding-bottom: 1.5rem; margin-bottom: 1.5rem; }
+                .border-b { border-bottom: 1px solid #e5e7eb; }
+                .border { border: 1px solid #e5e7eb; }
+                .rounded-lg { border-radius: 0.5rem;}
+                .bg-gray-50 { background-color: #f9fafb;}
+                .p-5 { padding: 1.25rem; }
+                .font-bold { font-weight: 700; }
+                .font-black { font-weight: 900; }
+                .text-sm { font-size: 0.875rem; }
+                .text-xs { font-size: 0.75rem; }
+                .uppercase { text-transform: uppercase; }
+                .text-primary { color: #3b82f6; }
+                .container { display:flex; flex-direction: column; height: 100%; justify-content: space-between;}
+            </style>
+        `;
+        // Since pdfkit doesn't run JS or Tailwind natively without absolute links, we supply core flex and tables styles manually here.
+        // Or cleaner: just grab right side html. 
+        // Note: For actual pdfkit we need absolute CSS paths. We will include basic flexbox and inline styles.
+        let content = document.getElementById('printable-invoice').innerHTML; 
+        
+        // For pdfkit we inject link if needed.
+        return `<!DOCTYPE html><html><head><meta charset="utf-8">${styles}</head><body>${content}</body></html>`;
+    }
+
+    async function generatePdf() {
+        if(invoiceItems.length === 0) {
+            showToast("Please add items to generating PDF", "error");
+            return;
+        }
+
+        showToast("Generating PDF...", "info");
+        const invoiceId = await saveInvoiceData();
+        
+        if(invoiceId) {
+            window.location.href = `/invoice/download/${invoiceId}`;
+            showToast("Download started", "success");
+        } else {
+            showToast("Error generating PDF", "error");
+        }
+    }
+
+    async function sendEmail() {
+        const receiver = document.getElementById('email-receiver').value;
+        const message = document.getElementById('email-message').value;
+        const errElem = document.getElementById('email-error');
+        
+        if (!receiver || !receiver.includes('@')) {
+            errElem.innerText = "Please enter a valid email address.";
+            errElem.classList.remove('hidden');
+            return;
+        }
+        errElem.classList.add('hidden');
+
+        if(invoiceItems.length === 0) {
+            showToast("Invoice is empty", "error");
+            closeEmailModal();
+            return;
+        }
+
+        const btn = document.getElementById('btn-send-email');
+        const origText = btn.innerHTML;
+        btn.innerHTML = `<i class="ph ph-spinner animate-spin mr-2"></i> Sending...`;
+        btn.disabled = true;
+
+        try {
+            const invoiceId = await saveInvoiceData();
+            if(!invoiceId) throw new Error("Failed to save invoice");
+
+            const res = await fetch('/api/invoice/send-email', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    invoice_id: invoiceId,
+                    receiver_email: receiver,
+                    message: message
+                })
+            });
+
+            const result = await res.json();
+            
+            if (result.success) {
+                showToast(result.message, "success");
+                closeEmailModal();
+            } else {
+                errElem.innerText = result.message || "Could not send email. Try again.";
+                errElem.classList.remove('hidden');
+            }
+        } catch (err) {
+            errElem.innerText = "Error: " + err.message;
+            errElem.classList.remove('hidden');
+        } finally {
+            btn.innerHTML = origText;
+            btn.disabled = false;
+        }
+    }
+</script>
+{% endblock %}

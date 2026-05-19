@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GST Tracker - Login</title>
+    {% include '_tailwind.html' %}
+</head>
+<body class="bg-background flex items-center justify-center min-h-screen p-4 md:p-8">
+
+<div class="w-full max-w-[440px] relative">
+    <!-- Decorative background blobs -->
+    <div class="absolute -top-12 -left-12 w-48 h-48 bg-primary/20 rounded-full blur-3xl -z-10"></div>
+    <div class="absolute -bottom-12 -right-12 w-48 h-48 bg-success/20 rounded-full blur-3xl -z-10"></div>
+
+    <div class="card relative overflow-hidden bg-white/80 backdrop-blur-md border border-white/40 shadow-xl !p-8">
+        <div class="text-center mb-8">
+            <div class="inline-flex items-center justify-center w-14 h-14 bg-primary text-white rounded-2xl mb-4 shadow-lg shadow-primary/30">
+                <i class="ph ph-receipt text-3xl"></i>
+            </div>
+            <h1 class="text-2xl font-bold text-text-main tracking-tight">GST Tracker</h1>
+            <p class="text-text-muted text-sm mt-1">Manage your business GST effortlessly</p>
+        </div>
+
+        <!-- Login Form -->
+        <div id="login-form" class="transition-all duration-300">
+            <h2 class="text-xl font-bold text-text-main mb-6">Welcome Back</h2>
+            <form id="login" onsubmit="handleLogin(event)" class="space-y-4">
+                <div class="form-group mb-0">
+                    <label class="form-label">Email Address</label>
+                    <div class="relative">
+                        <i class="ph ph-envelope absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-lg"></i>
+                        <input type="email" id="login-email" class="form-control !pl-10" placeholder="e.g. shop@example.com" required>
+                    </div>
+                </div>
+                <div class="form-group mb-0">
+                    <div class="flex justify-between items-center mb-1.5">
+                        <label class="form-label !mb-0">Password</label>
+                        <a href="#" class="text-xs text-primary font-medium hover:text-primary-hover">Forgot?</a>
+                    </div>
+                    <div class="relative">
+                        <i class="ph ph-lock absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-lg"></i>
+                        <input type="password" id="login-password" class="form-control !pl-10" placeholder="••••••••" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary w-full mt-2" id="login-btn">
+                    Login to Dashboard
+                </button>
+            </form>
+            <div class="text-center mt-6 text-sm text-text-muted">
+                Don't have an account? 
+                <button onclick="toggleAuth()" class="text-primary font-semibold hover:text-primary-hover transition-colors">
+                    Register here
+                </button>
+            </div>
+        </div>
+
+        <!-- Register Form (Hidden by default) -->
+        <div id="register-form" class="hidden transition-all duration-300">
+            <h2 class="text-xl font-bold text-text-main mb-6">Create Account</h2>
+            <form id="register" onsubmit="handleRegister(event)" class="space-y-4">
+                <div class="form-group mb-0">
+                    <label class="form-label">Your Name</label>
+                    <input type="text" id="reg-name" class="form-control" placeholder="e.g. Ramesh Kumar" required>
+                </div>
+                <div class="form-group mb-0">
+                    <label class="form-label">Business Name</label>
+                    <input type="text" id="reg-business" class="form-control" placeholder="e.g. Ramesh General Store" required>
+                </div>
+                <div class="form-group mb-0">
+                    <label class="form-label">Email Address</label>
+                    <input type="email" id="reg-email" class="form-control" placeholder="e.g. ramesh@gmail.com" required>
+                </div>
+                <div class="form-group mb-0">
+                    <label class="form-label">Password</label>
+                    <input type="password" id="reg-password" class="form-control" placeholder="••••••••" required>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="form-group mb-0">
+                        <label class="form-label">Business Type</label>
+                        <select id="reg-type" class="form-control" required>
+                            <option value="goods">Goods</option>
+                            <option value="services">Services</option>
+                        </select>
+                    </div>
+                    <div class="form-group mb-0">
+                        <label class="form-label">Annual Turnover (₹)</label>
+                        <input type="number" id="reg-turnover" class="form-control" placeholder="e.g. 1500000" required>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary w-full mt-2" id="reg-btn">
+                    Create Account
+                </button>
+            </form>
+            <div class="text-center mt-6 text-sm text-text-muted">
+                Already have an account? 
+                <button onclick="toggleAuth()" class="text-primary font-semibold hover:text-primary-hover transition-colors">
+                    Login here
+                </button>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script src="/static/script.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        checkAuth(false);
+    });
+
+    function toggleAuth() {
+        const loginForm = document.getElementById('login-form');
+        const regForm = document.getElementById('register-form');
+        
+        if (loginForm.classList.contains('hidden')) {
+            regForm.classList.add('hidden');
+            loginForm.classList.remove('hidden');
+        } else {
+            loginForm.classList.add('hidden');
+            regForm.classList.remove('hidden');
+        }
+    }
+
+    async function handleLogin(e) {
+        e.preventDefault();
+        const email = document.getElementById('login-email').value;
+        const password = document.getElementById('login-password').value;
+        const btn = document.getElementById('login-btn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="ph ph-spinner animate-spin mr-2 text-lg"></i> Logging in...';
+
+        try {
+            const res = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+            const data = await res.json();
+            
+            if (res.ok && data.success) {
+                localStorage.setItem('gst_user_id', data.user_id);
+                localStorage.setItem('gst_user_name', data.name);
+                localStorage.setItem('gst_business_name', data.business_name || '');
+                window.location.href = '/dashboard';
+            } else {
+                showToast(data.message || 'Login failed', 'error');
+            }
+        } catch (err) {
+            showToast('Server error. Please try again.', 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = 'Login to Dashboard';
+        }
+    }
+
+    async function handleRegister(e) {
+        e.preventDefault();
+        const btn = document.getElementById('reg-btn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="ph ph-spinner animate-spin mr-2 text-lg"></i> Registering...';
+
+        const body = {
+            name: document.getElementById('reg-name').value,
+            business_name: document.getElementById('reg-business').value,
+            email: document.getElementById('reg-email').value,
+            password: document.getElementById('reg-password').value,
+            business_type: document.getElementById('reg-type').value,
+            turnover: document.getElementById('reg-turnover').value
+        };
+
+        try {
+            const res = await fetch('/api/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            const data = await res.json();
+
+            if (res.ok && data.success) {
+                showToast(data.message, 'success');
+                toggleAuth(); 
+            } else {
+                showToast(data.message || 'Registration failed', 'error');
+            }
+        } catch (err) {
+            showToast('Server error. Please try again.', 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = 'Create Account';
+        }
+    }
+</script>
+</body>
+</html>

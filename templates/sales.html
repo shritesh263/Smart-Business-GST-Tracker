@@ -1,0 +1,222 @@
+{% extends 'base.html' %}
+{% block title %}Add Sale | GST Tracker{% endblock %}
+
+{% block head %}
+<style>
+#hsn-dropdown { position:absolute; z-index:50; width:100%; background:#fff;
+  border:1px solid #E5E7EB; border-top:none; border-radius:0 0 8px 8px;
+  box-shadow:0 8px 24px rgba(0,0,0,.08); max-height:240px; overflow-y:auto; }
+#hsn-dropdown .hsn-item { padding:10px 14px; cursor:pointer; display:flex;
+  align-items:center; justify-content:space-between; gap:8px; font-size:0.875rem;
+  border-bottom:1px solid #F3F4F6; transition:background 0.1s; }
+#hsn-dropdown .hsn-item:last-child { border-bottom:none; }
+#hsn-dropdown .hsn-item:hover { background:#F0F9FF; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <div class="flex items-center gap-3 mb-2">
+        <div class="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-xl shadow-sm">
+            <i class="ph ph-receipt"></i>
+        </div>
+        <h1 class="text-3xl font-bold text-text-main tracking-tight">Add Sale Entry</h1>
+    </div>
+    <p class="text-text-muted">Record a new transaction to track your GST compliance.</p>
+</div>
+
+<div class="card max-w-2xl">
+    <form id="sale-form" onsubmit="handleAddSale(event)" class="space-y-5">
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div class="form-group mb-0">
+                <label class="form-label">Date</label>
+                <div class="relative">
+                    <i class="ph ph-calendar-blank absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-lg pointer-events-none"></i>
+                    <input type="date" id="sale-date" class="form-control !pl-10" required>
+                </div>
+            </div>
+            <div class="form-group mb-0">
+                <label class="form-label flex justify-between">
+                    HSN/SAC Code
+                    <span class="text-xs font-normal text-text-muted bg-gray-100 px-2 py-0.5 rounded">Auto-filled</span>
+                </label>
+                <div class="relative">
+                    <i class="ph ph-barcode absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-lg pointer-events-none"></i>
+                    <input type="text" id="sale-hsn" class="form-control !pl-10" placeholder="Auto-filled from product search">
+                </div>
+            </div>
+        </div>
+
+        <!-- Product with live HSN search -->
+        <div class="form-group mb-0">
+            <label class="form-label">Product or Service Description</label>
+            <p class="text-xs text-text-muted mb-1.5">Start typing to search HSN codes — selecting auto-fills HSN and GST rate.</p>
+            <div class="relative" id="hsn-search-wrapper">
+                <i class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-lg pointer-events-none"></i>
+                <input type="text" id="sale-product" class="form-control !pl-10"
+                       placeholder="e.g. Rice, Mobile Phone, Cotton Shirt..."
+                       oninput="onProductInput()" autocomplete="off" required>
+                <div id="hsn-dropdown" style="display:none;"></div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div class="form-group mb-0">
+                <label class="form-label">Taxable Amount (₹)</label>
+                <div class="relative">
+                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted font-medium">₹</span>
+                    <input type="number" id="sale-amount" class="form-control !pl-8"
+                           placeholder="e.g. 5000" step="0.01" required oninput="calculateGST()">
+                </div>
+            </div>
+            <div class="form-group mb-0">
+                <label class="form-label">Applicable GST Rate</label>
+                <div class="relative">
+                    <i class="ph ph-percent absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-lg pointer-events-none z-10"></i>
+                    <select id="sale-rate" class="form-control !pl-10" onchange="calculateGST()" required>
+                        <option value="0">0% (Exempt)</option>
+                        <option value="5">5%</option>
+                        <option value="12" selected>12%</option>
+                        <option value="18">18%</option>
+                        <option value="28">28%</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- GST live preview -->
+        <div class="bg-gray-50 border border-border rounded-lg p-5 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center text-success">
+                    <i class="ph ph-check-circle text-xl"></i>
+                </div>
+                <div>
+                    <h4 class="font-semibold text-text-main">GST to Collect</h4>
+                    <p class="text-xs text-text-muted">Will be added to net tax payable</p>
+                </div>
+            </div>
+            <div id="live-gst" class="text-2xl font-bold text-success">₹0.00</div>
+        </div>
+
+        <div class="pt-2 flex gap-3">
+            <button type="button" onclick="resetForm()" class="btn btn-outline flex-1 md:flex-none">Clear</button>
+            <button type="submit" class="btn btn-primary flex-1" id="submit-btn">
+                <i class="ph ph-floppy-disk mr-2 text-lg"></i> Save Sale Entry
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let hsnDebounceTimer = null;
+
+    document.getElementById('sale-date').valueAsDate = new Date();
+
+    function calculateGST() {
+        const amount = parseFloat(document.getElementById('sale-amount').value) || 0;
+        const rate   = parseFloat(document.getElementById('sale-rate').value) || 0;
+        document.getElementById('live-gst').innerText = formatRupee((amount * rate) / 100);
+    }
+
+    function resetForm() {
+        document.getElementById('sale-product').value = '';
+        document.getElementById('sale-amount').value  = '';
+        document.getElementById('sale-hsn').value     = '';
+        document.getElementById('sale-rate').value    = '12';
+        calculateGST();
+        document.getElementById('hsn-dropdown').style.display = 'none';
+        document.getElementById('sale-product').focus();
+    }
+
+    function onProductInput() {
+        clearTimeout(hsnDebounceTimer);
+        const q = document.getElementById('sale-product').value.trim();
+        if (q.length < 2) {
+            document.getElementById('hsn-dropdown').style.display = 'none';
+            return;
+        }
+        hsnDebounceTimer = setTimeout(() => searchHSN(q), 250);
+    }
+
+    async function searchHSN(q) {
+        try {
+            const res  = await fetch('/api/hsn-search?q=' + encodeURIComponent(q));
+            const data = await res.json();
+            const dd   = document.getElementById('hsn-dropdown');
+            if (!data.results || data.results.length === 0) {
+                dd.style.display = 'none'; return;
+            }
+            dd.innerHTML = '';
+            data.results.slice(0, 8).forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'hsn-item';
+                div.innerHTML = `
+                    <div>
+                        <span class="font-medium text-text-main">${item.product_name}</span>
+                        <span class="ml-2 text-xs text-text-muted">HSN: ${item.hsn_code}</span>
+                    </div>
+                    <span class="text-xs font-bold px-2 py-0.5 rounded-full ${item.is_exempt ? 'bg-green-100 text-green-700' : 'bg-primary/10 text-primary'}">
+                        ${item.gst_rate}% GST
+                    </span>`;
+                div.addEventListener('click', () => selectHSN(item));
+                dd.appendChild(div);
+            });
+            dd.style.display = 'block';
+        } catch(e) { console.error(e); }
+    }
+
+    function selectHSN(item) {
+        document.getElementById('sale-product').value = item.product_name;
+        document.getElementById('sale-hsn').value     = item.hsn_code;
+
+        // Set GST rate selector
+        const sel = document.getElementById('sale-rate');
+        const rate = item.gst_rate.toString();
+        for (let opt of sel.options) {
+            if (opt.value === rate) { sel.value = rate; break; }
+        }
+        calculateGST();
+        document.getElementById('hsn-dropdown').style.display = 'none';
+        document.getElementById('sale-amount').focus();
+    }
+
+    // Close dropdown on outside click
+    document.addEventListener('click', (e) => {
+        if (!document.getElementById('hsn-search-wrapper').contains(e.target)) {
+            document.getElementById('hsn-dropdown').style.display = 'none';
+        }
+    });
+
+    async function handleAddSale(e) {
+        e.preventDefault();
+        const userId = getUserId();
+        if (!userId) return;
+        const btn = document.getElementById('submit-btn');
+        const orig = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="ph ph-spinner animate-spin mr-2 text-lg"></i> Saving...';
+        const body = {
+            user_id:  userId,
+            date:     document.getElementById('sale-date').value,
+            product:  document.getElementById('sale-product').value,
+            hsn_code: document.getElementById('sale-hsn').value,
+            amount:   document.getElementById('sale-amount').value,
+            gst_rate: document.getElementById('sale-rate').value
+        };
+        try {
+            const res  = await fetch('/api/add-sale', {method:'POST',
+                headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+            const data = await res.json();
+            if (res.ok && data.success) { showToast(data.message, 'success'); resetForm(); }
+            else { showToast(data.message || 'Failed to add sale', 'error'); }
+        } catch(err) {
+            showToast('Server error', 'error');
+        } finally {
+            btn.disabled = false; btn.innerHTML = orig;
+        }
+    }
+</script>
+{% endblock %}

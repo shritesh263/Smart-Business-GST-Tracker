@@ -1,0 +1,178 @@
+{% extends 'base.html' %}
+
+{% block title %}GST Eligibility Check | GST Tracker{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <div class="flex items-center gap-3 mb-2">
+        <div class="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-xl shadow-sm">
+            <i class="ph ph-check-square-offset"></i>
+        </div>
+        <h1 class="text-3xl font-bold text-text-main tracking-tight">GST Eligibility Check</h1>
+    </div>
+    <p class="text-text-muted">Find out if you need to register for GST based on your turnover.</p>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    
+    <!-- Checker Form -->
+    <div class="card h-fit">
+        <h3 class="text-lg font-bold text-text-main mb-6 flex items-center gap-2">
+            <i class="ph ph-magnifying-glass text-primary"></i>
+            Check Your Status
+        </h3>
+        <form id="checker-form" onsubmit="checkEligibility(event)" class="space-y-5">
+            <div class="form-group mb-0">
+                <label class="form-label flex items-center gap-2 text-text-main font-medium">
+                    Business Type
+                    <i class="ph ph-info text-text-muted" title="Are you selling physical goods or providing services?"></i>
+                </label>
+                <div class="relative">
+                    <i class="ph ph-buildings absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-lg pointer-events-none z-10"></i>
+                    <select id="check-type" class="form-control !pl-10" required>
+                        <option value="goods">Goods (Selling Items)</option>
+                        <option value="services">Services</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="form-group mb-0">
+                <label class="form-label flex items-center gap-2 text-text-main font-medium">
+                    Annual Turnover (₹)
+                    <i class="ph ph-info text-text-muted" title="Your total expected yearly revenue"></i>
+                </label>
+                <div class="relative">
+                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted font-medium">₹</span>
+                    <input type="number" id="check-turnover" class="form-control !pl-8" placeholder="e.g. 2500000" min="0" required>
+                </div>
+            </div>
+            
+            <button type="submit" class="btn btn-primary w-full mt-2" id="check-btn">
+                <i class="ph ph-calculator mr-2 text-lg"></i>
+                Check Eligibility
+            </button>
+        </form>
+    </div>
+
+    <!-- Results Panel -->
+    <div id="checker-result" class="hidden transition-all duration-300">
+        <div class="card bg-gray-50/50 border-dashed border-2">
+            <h3 class="text-lg font-bold text-text-main mb-6">Assessment Result</h3>
+            
+            <div id="rs-status-box" class="p-4 rounded-lg flex items-start gap-4 mb-6 shadow-sm">
+                <!-- Status icon and text injected here -->
+            </div>
+
+            <div class="bg-white p-4 items-center justify-between rounded-lg border border-border shadow-sm mb-6 flex gap-3">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                        <i class="ph ph-scales text-lg"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs text-text-muted font-bold uppercase tracking-wider">Threshold Rule</p>
+                        <p class="text-sm font-medium text-text-main mt-0.5" id="rs-threshold-text">Registration is mandatory > ₹0 for goods.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="rs-composition" class="hidden p-4 rounded-lg bg-success/10 border border-success/20 mb-6">
+                <div class="flex gap-3">
+                    <i class="ph ph-star text-success text-xl shrink-0 mt-0.5"></i>
+                    <div>
+                        <strong class="text-success text-sm block mb-1">Composition Scheme Eligible</strong>
+                        <p class="text-xs text-success/80">You can opt for the Composition scheme for reduced compliance and a flat tax rate.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="rs-docs-section" class="hidden">
+                <h4 class="font-bold text-text-main text-sm mb-3">Required Documents for Registration</h4>
+                <ul id="rs-docs-list" class="space-y-2">
+                    <!-- dynamic list -->
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    async function checkEligibility(e) {
+        e.preventDefault();
+        const type = document.getElementById('check-type').value;
+        const turnover = document.getElementById('check-turnover').value;
+        
+        const btn = document.getElementById('check-btn');
+        const originalBtnHTML = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="ph ph-spinner animate-spin mr-2 text-lg"></i> Assessing...';
+
+        try {
+            const res = await fetch(`/api/check-eligibility?turnover=${turnover}&business_type=${type}`);
+            const data = await res.json();
+
+            if (data.success) {
+                const resultsPanel = document.getElementById('checker-result');
+                resultsPanel.classList.remove('hidden');
+
+                const statusBox = document.getElementById('rs-status-box');
+                if (data.needs_registration) {
+                    statusBox.className = 'p-4 rounded-lg flex items-start gap-4 mb-6 shadow-sm bg-danger/10 border border-danger/20';
+                    statusBox.innerHTML = `
+                        <i class="ph ph-warning-circle text-3xl text-danger mt-1"></i>
+                        <div>
+                            <strong class="text-danger text-lg block mb-1 tracking-tight">Registration is Mandatory</strong>
+                            <p class="text-sm text-danger/80 border-t border-danger/20 pt-2 mt-2">Your turnover exceeds the threshold limit for ${type}. You must register for GST.</p>
+                        </div>
+                    `;
+                } else {
+                    statusBox.className = 'p-4 rounded-lg flex items-start gap-4 mb-6 shadow-sm bg-success/10 border border-success/20';
+                    statusBox.innerHTML = `
+                        <i class="ph ph-check-circle text-3xl text-success mt-1"></i>
+                        <div>
+                            <strong class="text-success text-lg block mb-1 tracking-tight">Registration Not Required</strong>
+                            <p class="text-sm text-success/80 border-t border-success/20 pt-2 mt-2">Your turnover is below the threshold limit. You may register voluntarily if you wish.</p>
+                        </div>
+                    `;
+                }
+
+                document.getElementById('rs-threshold-text').innerText = `Registration is mandatory when turnover exceeds ${formatRupee(data.threshold)} for ${type}.`;
+
+                const compBox = document.getElementById('rs-composition');
+                if (data.composition_eligible) {
+                    compBox.classList.remove('hidden');
+                } else {
+                    compBox.classList.add('hidden');
+                }
+
+                const docsList = document.getElementById('rs-docs-list');
+                const docsSection = document.getElementById('rs-docs-section');
+                docsList.innerHTML = '';
+                
+                if (data.needs_registration) {
+                    docsSection.classList.remove('hidden');
+                    data.docs_needed.forEach(doc => {
+                        const li = document.createElement('li');
+                        li.className = 'flex items-center gap-2 text-sm text-text-muted';
+                        li.innerHTML = `<i class="ph ph-file-text text-primary"></i> ${doc}`;
+                        docsList.appendChild(li);
+                    });
+                } else {
+                    docsSection.classList.add('hidden');
+                }
+
+            }
+        } catch(err) {
+            showToast('Failed to check eligibility', 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalBtnHTML;
+            // Scroll to results on mobile
+            if (window.innerWidth < 1024) {
+                document.getElementById('checker-result').scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+    }
+</script>
+{% endblock %}
