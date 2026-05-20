@@ -18,7 +18,10 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)
 
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///gst_tracker.db"
+if os.environ.get("VERCEL"):
+    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:////tmp/gst_tracker.db"
+else:
+    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///gst_tracker.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
 
